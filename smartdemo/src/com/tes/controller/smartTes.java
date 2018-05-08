@@ -63,6 +63,9 @@ public class smartTes {
 		if (sendMsg.isEmpty() || callTemp.robotId.isEmpty()){
 			System.out.println(getCurrentTime() +" sendMsg is empty" );
 			map =  noop(callTemp);
+		}else if (sendMsg.equals("resume")) {
+			System.out.println(getCurrentTime() +" resume play" );
+			map =  console(callTemp, "resume");
 		}else {
 			if (!TEST){
 				boolean ret = receiver.send(sendMsg);
@@ -287,14 +290,22 @@ public class smartTes {
 
 		if ("enter".equals(callTemp.action)) { // 接通
 			return buildEndterMsg(callTemp);
-		//} else if (("asrprogress_notify".equals(action)) || ("asrmessage_notify".equals(action))) { // 停顿识别（逗号识别）
+		} else if (("asrprogress_notify".equals(callTemp.action))) { // 停顿识别（逗号识别）
+			return "resume";
 		} else if ("asrmessage_notify".equals(callTemp.action)) {
 			sendInterupt(jsonDate, callTemp, receiver);
 			String message = String.valueOf(jsonDate.get("message"));
-			if (message.isEmpty()){
-				return buildMsgMsg("", callTemp);
+			boolean isPlay = (boolean) jsonDate.get("playstate");
+			if (message.isEmpty() ){
+				if (isPlay) {
+					return "resume";
+				}else {
+					return buildMsgMsg("", callTemp);
+				}
+			}else {
+				return buildMsgMsg(message, callTemp);
 			}
-			return buildMsgMsg(message, callTemp);
+			
 		} else if ("playback_result".equals(callTemp.action)) { // 放音超时结果
 			return buildPlayback(callTemp);
 		} else if ("leave".equals(callTemp.action)){ // 挂断
@@ -474,7 +485,8 @@ public class smartTes {
 			params.put("prompt", "/home/galaxyeye/Downloads/" + prompt);
 			params.put("wait", outTime);
 			params.put("retry", 0);
-
+			params.put("allow_interrupt", 1500);//播放前1.5秒不能打断
+			
 			map.put("params", params);
 			return map;
 		}
@@ -514,14 +526,14 @@ public class smartTes {
 		return null;
 	}
 	
-	public Map<String, Object> console(call callTemp) {
+	public Map<String, Object> console(call callTemp, String op) {
 		Map<String, Object> map = new HashMap<String, Object>();
 		if (!callTemp.action.isEmpty()) {
 			map.put("action", "console_playback");
 			// 缓存中取出这步的业务名称
 			map.put("flowdata", "");
 			Map<String, Object> params = new HashMap<String, Object>();
-			params.put("command", "resume");
+			params.put("command", op);
 
 			map.put("params", params);
 			return map;
@@ -552,7 +564,7 @@ public class smartTes {
 			params.put("max_speak_ms", 10000);
 			params.put("min_pause_ms", 300);
 			params.put("max_pause_ms", 600);
-			params.put("pause_play_ms", 300);// 暂停播放毫秒
+			params.put("pause_play_ms", 400);// 暂停播放毫秒
 			params.put("threshold", 500);// VAD阈值，默认0，建议不要设置，如果一定要设置，建议
 											// 2000以下的值。
 			params.put("volume", 50);
@@ -562,6 +574,7 @@ public class smartTes {
 			after_params.put("prompt", "/home/galaxyeye/Downloads/" + prompt);
 			after_params.put("wait", outTime);
 			after_params.put("retry", 0);
+			after_params.put("allow_interrupt", 1500);//播放前1.5秒不能打断
 			map.put("params", after_params);
 			map.put("after_params", params);
 			return map;
