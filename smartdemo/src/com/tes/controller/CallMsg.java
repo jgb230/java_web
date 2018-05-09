@@ -77,6 +77,8 @@ public class CallMsg {
 		}
 		ret += "] lastedPlay:";
 		ret += sdFormat.format(lastedPlay);
+		ret += " outTime:";
+		ret += outTime;
 		return ret;
 	}
 }

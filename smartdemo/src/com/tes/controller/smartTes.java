@@ -26,6 +26,7 @@ import com.alibaba.fastjson.JSONObject;
 @Controller
 public class smartTes {
 	final static String RESUME = "resume";
+	final static String ASRSTART = "asrstart";
 	final static String INVALID = "invalid";
 	final static int INVALIDTIME = 2500;
 	final static int ASRTIME = 800;
@@ -75,6 +76,15 @@ public class smartTes {
 		}else if (sendMsg.equals(INVALID)) {
 			System.out.println(getCurrentTime() +" invalid "+ INVALIDTIME/1000 +"S之内" );
 			map = noop(callTemp);
+		}else if (sendMsg.equals(ASRSTART)) {
+			String key = callTemp.calleeid + callTemp.callerid;
+			System.out.println(getCurrentTime() +" asrstart "+ INVALIDTIME/1000 +"S之内" );
+			int time = 100;
+			if (callInfo.containsKey(key) && callInfo.get(key).getoutTime() != 0){
+				time = callInfo.get(key).getoutTime();
+			}
+			map = nothingFangyin(time, callTemp);
+			setTime(key, time);
 		}else {
 			if (!TEST){
 				boolean ret = receiver.send(sendMsg);
@@ -83,7 +93,7 @@ public class smartTes {
 					ZMQ.PollItem []items = {new ZMQ.PollItem(receiver, ZMQ.Poller.POLLIN)};
 					ZMQ.poll(items, OUTIME);
 					if (!items[0].isReadable()){
-						System.out.println(getCurrentTime() +" nothingFangyin:" );
+						System.out.println(getCurrentTime() +"timeout nothingFangyin:" );
 						map = nothingFangyin(LONGOUT, callTemp);
 						if (!callTemp.action.equals("leave")) {
 							String key = callTemp.calleeid + callTemp.callerid;
@@ -383,7 +393,9 @@ public class smartTes {
 			return buildLeaveMsg(callTemp);
 		} else if ("wait_result".equals(callTemp.action)){ // wait超时
 			return buildTimeoutMsg(callTemp);
-		} 
+		} else if ("start_asr_result".equals(callTemp.action)) {
+			return ASRSTART;
+		}
 		return "";
 	}
 
@@ -681,18 +693,11 @@ public class smartTes {
 	 */
 	public Map<String, Object> hangUp(String voice) {
 		Map<String, Object> map = new HashMap<String, Object>();
-		map.put("action", "playback");
-		map.put("suspend_asr", true);
-		map.put("flowdata", "再见");
-		Map<String, Object> params = new HashMap<String, Object>();
-		params.put("prompt", "再见");
-		map.put("params", params);
-		map.put("after_action", "hangup");
-		map.put("after_ignore_error", true);
+		map.put("action", "hangup");
 		Map<String, Object> after_params = new HashMap<String, Object>();
 		after_params.put("cause", 0);
 		after_params.put("usermsg", "");
-		map.put("after_params", after_params);
+		map.put("params", after_params);
 		return map;
 	}
 
