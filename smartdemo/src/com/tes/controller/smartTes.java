@@ -25,17 +25,23 @@ import com.alibaba.fastjson.JSONObject;
 
 @Controller
 public class smartTes {
+	final static String RESUME = "resume";
+	final static String INVALID = "invalid";
+	final static int INVALIDTIME = 2500;
+	final static int ASRTIME = 800;
+	final static int OUTIME = 1000;
+	final static int LONGOUT = 10 * 1000 - OUTIME;
+	
 	private static final Logger log = Logger.getLogger(smartTes.class);
 	
-	Hashtable<String, Integer> timeTable = new Hashtable<String, Integer>();
-	Hashtable<String, String> robotTable = new Hashtable<String, String>();
-	
+//	Hashtable<String, Integer> timeTable = new Hashtable<String, Integer>();
+//	Hashtable<String, String> robotTable = new Hashtable<String, String>();
+	Hashtable<String, CallMsg> callInfo = new Hashtable<String, CallMsg>();
 	private boolean TEST = false;
 	
 	@RequestMapping("/smatrIvr")
 	public @ResponseBody Map<String, Object> smartDemo(HttpServletRequest request, HttpServletResponse response) throws Exception {
 		Map<String, Object> map = new HashMap<String, Object>();
-		
 		ZMQ.Context context = ZMQ.context(1);
 		ZMQ.Socket receiver = context.socket(ZMQ.DEALER);
 		receiver.connect("tcp://172.16.0.17:3130");
@@ -63,21 +69,25 @@ public class smartTes {
 		if (sendMsg.isEmpty() || callTemp.robotId.isEmpty()){
 			System.out.println(getCurrentTime() +" sendMsg is empty" );
 			map =  noop(callTemp);
-		}else if (sendMsg.equals("resume")) {
+		}else if (sendMsg.equals(RESUME)) {
 			System.out.println(getCurrentTime() +" resume play" );
-			map =  console(callTemp, "resume");
+			map =  console(callTemp, RESUME);
+		}else if (sendMsg.equals(INVALID)) {
+			System.out.println(getCurrentTime() +" invalid "+ INVALIDTIME/1000 +"S之内" );
+			map = noop(callTemp);
 		}else {
 			if (!TEST){
 				boolean ret = receiver.send(sendMsg);
 				if (ret){
 	
 					ZMQ.PollItem []items = {new ZMQ.PollItem(receiver, ZMQ.Poller.POLLIN)};
-					ZMQ.poll(items, 1000);
+					ZMQ.poll(items, OUTIME);
 					if (!items[0].isReadable()){
 						System.out.println(getCurrentTime() +" nothingFangyin:" );
-						map = nothingFangyin(5500, callTemp);
+						map = nothingFangyin(LONGOUT, callTemp);
 						if (!callTemp.action.equals("leave")) {
-							setTime(callTemp.callid, 5500);
+							String key = callTemp.calleeid + callTemp.callerid;
+							setTime(key, LONGOUT);
 						}
 					}else {
 						recvMsg = new String(receiver.recv());
@@ -101,8 +111,9 @@ public class smartTes {
 		log.info("map=" + map);
 		System.out.println(getCurrentTime() +" map=" + map);
 		
-		System.out.println(getCurrentTime() +" timeTable:" + timeTable);
-		System.out.println(getCurrentTime() +" robotTable:" + robotTable);
+//		System.out.println(getCurrentTime() +" timeTable:" + timeTable);
+//		System.out.println(getCurrentTime() +" robotTable:" + robotTable);
+		System.out.println(getCurrentTime() +" callInfo:" + callInfo);
 		receiver.close();
 		context.close();
 		
@@ -121,11 +132,17 @@ public class smartTes {
 			phone = callTemp.calleeid;
 		}
 		callTemp.setUserId(phone);
-		if (robotTable.containsKey(key)) {
-			robotId = robotTable.get(key);
+//		if (robotTable.containsKey(key)) {
+//			robotId = robotTable.get(key);
+//			callTemp.setRobotId(robotId);
+//			return;
+//		}
+		if (callInfo.containsKey(key) && callInfo.get(key).getRobotId() != "") {
+			robotId = callInfo.get(key).getRobotId();
 			callTemp.setRobotId(robotId);
 			return;
 		}
+		
 		sendMsg = build602(phone);
 		System.out.println(getCurrentTime() +" sendMsg---" + sendMsg);
 		if (!TEST){
@@ -133,7 +150,7 @@ public class smartTes {
 			if (ret){
 	
 				ZMQ.PollItem []items = {new ZMQ.PollItem(receiver, ZMQ.Poller.POLLIN)};
-				ZMQ.poll(items, 1000);
+				ZMQ.poll(items, OUTIME);
 				if (!items[0].isReadable()){
 					throw new Exception(getCurrentTime() +" 602 no return!" );
 				}
@@ -161,7 +178,13 @@ public class smartTes {
 						throw new Exception(getCurrentTime() + "没有robotList项" + errInfo(errNum));
 					}
 					robotId = (String) list.get(0).get("robotID");
-					robotTable.put(key, robotId);
+//					robotTable.put(key, robotId);
+					if (callInfo.containsKey(key)) {
+						callInfo.get(key).setRobotId(robotId);
+					}else {
+						callInfo.put(key, new CallMsg(robotId));
+					}
+					
 					callTemp.setRobotId(robotId);
 				}
 			}
@@ -187,7 +210,12 @@ public class smartTes {
 				@SuppressWarnings("unchecked")
 				List<Map<String,String>> list = (List<Map<String,String>>) JSONArray.parse(robotList);
 				robotId = (String) list.get(0).get("robotID");
-				robotTable.put(key, robotId);
+//				robotTable.put(key, robotId);
+				if (callInfo.containsKey(key)) {
+					callInfo.get(key).setRobotId(robotId);
+				}else {
+					callInfo.put(key, new CallMsg(robotId));
+				}
 				callTemp.setRobotId(robotId);
 			}
 		}
@@ -241,6 +269,7 @@ public class smartTes {
 		
 		int cmd = (Integer)jsonDate.get("cmd");
 		System.out.println(getCurrentTime() +"  cmd:" + cmd + " action:" + callTemp.action);
+		String key = callTemp.calleeid + callTemp.callerid;
 		if (cmd == 901){
 			if (!jsonDate.containsKey("timeout")){
 				throw new Exception("没有timeout项");
@@ -252,58 +281,99 @@ public class smartTes {
 				map = defaultfangyin(message, 0, callTemp);
 			}else {
 				map = fangyin(message, 0, callTemp);
+				setLastedPlay(callTemp);
 			}
-			setTime(callTemp.callid, outTime);
+			setTime(key, outTime);
 		}else if (cmd == 1020){
 			map = hangUp("");
 			clear(callTemp);
 		}else if (cmd == 1021) {
 			int time = 100;
-			if (timeTable.containsKey(callTemp.callid)){
-				time = timeTable.get(callTemp.callid);
+//			if (timeTable.containsKey(key)){
+//				time = timeTable.get(key);
+//			}
+			if (callInfo.containsKey(key) && callInfo.get(key).getoutTime() != 0){
+				time = callInfo.get(key).getoutTime();
 			}
 			map = nothingFangyin(time, callTemp);
-			setTime(callTemp.callid, time);
+			setTime(key, time);
 		}
 		return map;
 	}
 
-	private void clear(call callTemp) {
-		if (timeTable.containsKey(callTemp.callid)){
-			timeTable.remove(callTemp.callid);
-		}
+	private void setLastedPlay(call callTemp) {
 		String key = callTemp.calleeid + callTemp.callerid;
-		if (robotTable.containsKey(key)) {
-			robotTable.remove(key);
+		if (callInfo.containsKey(key)) {
+			callInfo.get(key).setlastedPlay(new Date());
+		}else {
+			callInfo.put(key, new CallMsg());
 		}
 	}
 
-	private void setTime(String callid2, int outTime) {
-		if (timeTable.containsKey(callid2)){
-			timeTable.replace(callid2, outTime);
-		}else {
-			timeTable.put(callid2, outTime);
+	private void clear(call callTemp) {
+		String key = callTemp.calleeid + callTemp.callerid;
+//		if (timeTable.containsKey(key)){
+//			timeTable.remove(key);
+//		}
+		
+		if (callInfo.containsKey(key) ){
+			callInfo.remove(key);
 		}
+		
+//		if (robotTable.containsKey(key)) {
+//			robotTable.remove(key);
+//		}
+	}
+
+	private void setTime(String key, int outTime) {
+//		if (timeTable.containsKey(key)){
+//			timeTable.replace(key, outTime);
+//		}else {
+//			timeTable.put(key, outTime);
+//		}
+		
+		if (callInfo.containsKey(key)){
+			callInfo.get(key).setoutTime(outTime);
+		}else {
+			callInfo.put(key, new CallMsg(outTime));
+		}
+		
 	}
 
 	private String buildSendMsg(JSONObject jsonDate, call callTemp, ZMQ.Socket receiver) {
-
+		String key = callTemp.calleeid + callTemp.callerid;
 		if ("enter".equals(callTemp.action)) { // 接通
 			return buildEndterMsg(callTemp);
 		} else if (("asrprogress_notify".equals(callTemp.action))) { // 停顿识别（逗号识别）
-			return "resume";
+			return RESUME;
 		} else if ("asrmessage_notify".equals(callTemp.action)) {
+			Date now = new Date();
 			sendInterupt(jsonDate, callTemp, receiver);
 			String message = String.valueOf(jsonDate.get("message"));
 			boolean isPlay = (boolean) jsonDate.get("playstate");
+			if (callInfo.containsKey(key)) {
+				if (callInfo.get(key).getlastedPlay().getTime() + INVALIDTIME + ASRTIME > now.getTime()) {
+					// 播放前1.5秒之内为无效  500ms为asr识别估计时间
+					return INVALID;
+				}
+			}
 			if (message.isEmpty() ){
+				// ase识别为空
 				if (isPlay) {
-					return "resume";
+					// 正在播放，返回继续播放
+					return RESUME;
 				}else {
+					// 不在播放，发送空到TES
 					return buildMsgMsg("", callTemp);
 				}
 			}else {
-				return buildMsgMsg(message, callTemp);
+				if (isPlay && callInfo.containsKey(key) && callInfo.get(key).isFrequent(now)) {
+					// 频繁打断 暂时不用
+					//return buildFrequentMsg(callTemp);
+					return buildMsgMsg(message, callTemp);
+				}else {
+					return buildMsgMsg(message, callTemp);
+				}
 			}
 			
 		} else if ("playback_result".equals(callTemp.action)) { // 放音超时结果
@@ -315,6 +385,15 @@ public class smartTes {
 			return buildTimeoutMsg(callTemp);
 		} 
 		return "";
+	}
+
+	private String buildFrequentMsg(call callTemp) {
+		Map<String, Object> map = new HashMap<String, Object>();
+		map.put("cmd", 1230);
+		map.put("robotid", callTemp.robotId);
+		map.put("uid", callTemp.userId);
+		map.put("content", "用户频繁打断");
+		return JSON.toJSONString(map);
 	}
 
 	private String buildPlayback(call callTemp) {
@@ -347,7 +426,7 @@ public class smartTes {
 		boolean ret = receiver.send(sendMsg);
 		if (ret){
 			ZMQ.PollItem []items = {new ZMQ.PollItem(receiver, ZMQ.Poller.POLLIN)};
-			ZMQ.poll(items, 1000);
+			ZMQ.poll(items, OUTIME);
 			if (!items[0].isReadable()){
 				System.out.println(getCurrentTime() +" nothingFangyin:" );
 			}else {
@@ -358,8 +437,18 @@ public class smartTes {
 	}
 
 	private String buildTimeoutMsg(call callTemp) {
-		if (timeTable.containsKey(callTemp.callid)){
-			int outTime = (Integer)(timeTable.get(callTemp.callid));
+		String key = callTemp.calleeid + callTemp.callerid;
+//		if (timeTable.containsKey(key)){
+//			int outTime = (Integer)(timeTable.get(key));
+//			if (outTime< 1000){
+//				return buildTimeoutShortMsg(callTemp);
+//			}else {
+//				return buildTimeoutLongMsg(callTemp);
+//			}
+//		}
+//		
+		if (callInfo.containsKey(key) && callInfo.get(key).getoutTime() != 0){
+			int outTime = callInfo.get(key).getoutTime();
 			if (outTime< 1000){
 				return buildTimeoutShortMsg(callTemp);
 			}else {
@@ -485,7 +574,7 @@ public class smartTes {
 			params.put("prompt", "/home/galaxyeye/Downloads/" + prompt);
 			params.put("wait", outTime);
 			params.put("retry", 0);
-			params.put("allow_interrupt", 1500);//播放前1.5秒不能打断
+			params.put("allow_interrupt", INVALIDTIME);//播放前1.5秒不能打断
 			
 			map.put("params", params);
 			return map;
@@ -574,7 +663,6 @@ public class smartTes {
 			after_params.put("prompt", "/home/galaxyeye/Downloads/" + prompt);
 			after_params.put("wait", outTime);
 			after_params.put("retry", 0);
-			after_params.put("allow_interrupt", 1500);//播放前1.5秒不能打断
 			map.put("params", after_params);
 			map.put("after_params", params);
 			return map;
@@ -693,7 +781,7 @@ public class smartTes {
 	}
 	
 	public String getCurrentTime(){
-		SimpleDateFormat sdFormat = new SimpleDateFormat("yyyy-MM-dd hh:mm:ss.SSS"); 
+		SimpleDateFormat sdFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS"); 
 		String myTime = sdFormat.format(new Date());
 		
 		return myTime;
