@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
 import javax.servlet.http.HttpServletResponse;
 
@@ -33,6 +34,18 @@ public class smartTes {
 	final static int OUTIME = 1000;
 	final static int LONGOUT = 10 * 1000 - OUTIME;
 	
+	private static String broker = "";
+	static {
+        Properties properties = ConnectionPool.loadPropertiesFile("db_server.properties");
+        try {
+        	broker=properties.getProperty("broker");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+	
+	private static SimpleDateFormat sdFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS"); 
+	
 	private static final Logger log = Logger.getLogger(smartTes.class);
 	
 //	Hashtable<String, Integer> timeTable = new Hashtable<String, Integer>();
@@ -45,7 +58,8 @@ public class smartTes {
 		Map<String, Object> map = new HashMap<String, Object>();
 		ZMQ.Context context = ZMQ.context(1);
 		ZMQ.Socket receiver = context.socket(ZMQ.DEALER);
-		receiver.connect("tcp://172.16.0.17:3130");
+		
+		receiver.connect(broker);
 		
 		String sendMsg;
 		String recvMsg;
@@ -55,7 +69,7 @@ public class smartTes {
 		
 		System.out.println("\n\n\n----------------------------------------------------------\n");
 		System.out.println(getCurrentTime() +" json---" + json);
-		JSONObject jsonDate = JSONObject.parseObject(json);;
+		JSONObject jsonDate = JSONObject.parseObject(json);
 		call callTemp = null;
 		try {
 			callTemp = new call(json);
@@ -63,6 +77,8 @@ public class smartTes {
 		}catch (Exception e) {
 			e.printStackTrace();
 		}
+		
+		//sqltest(callTemp);
 		
 		sendMsg = buildSendMsg(jsonDate, callTemp, receiver);
 		System.out.println(getCurrentTime() +" sendMsg---" + sendMsg);
@@ -287,6 +303,7 @@ public class smartTes {
 			int outTime = (Integer)jsonDate.get("timeout");
 			String message = String.valueOf(jsonDate.get("content"));
 			System.out.println(getCurrentTime() +" outTime:" + outTime + " message:" + message );
+			insertCallinfo(callTemp, Speaker.ROBOT, message, CntType.RECORD );
 			if ("enter".equals(callTemp.action)){// 接通
 				map = defaultfangyin(message, 0, callTemp);
 			}else {
@@ -360,6 +377,7 @@ public class smartTes {
 			Date now = new Date();
 			sendInterupt(jsonDate, callTemp, receiver);
 			String message = String.valueOf(jsonDate.get("message"));
+			insertCallinfo(callTemp, Speaker.USER, message, CntType.TXT);
 			boolean isPlay = (boolean) jsonDate.get("playstate");
 			if (callInfo.containsKey(key)) {
 				if (callInfo.get(key).getlastedPlay().getTime() + INVALIDTIME + ASRTIME > now.getTime()) {
@@ -397,6 +415,31 @@ public class smartTes {
 			return ASRSTART;
 		}
 		return "";
+	}
+
+	private void insertCallinfo(call callTemp, Speaker speak, String message, CntType type) {
+		Dao druidDao = new Dao();
+		int speaker = 0;
+		int cttype = 0;
+		switch(speak) {
+		case USER:
+			speaker = 0;break;
+		case ROBOT:
+			speaker = 1;break;
+		}
+		switch(type) {
+		case TXT:
+			cttype = 0;break;
+		case RECORD:
+			cttype = 1;break;
+		}
+		
+		String sql = String.format("insert into tb_call_info (callid, callerid, calleeid, speaker, content, cttype, indate, id) "
+				+ " select \"%s\",\"%s\",\"%s\",%d,\"%s\",%d,\"%s\",IFNULL(max(id)+1,1) "
+				+ "from tb_call_info where callid=\"%s\"", 
+				callTemp.callid, callTemp.callerid, callTemp.calleeid, speaker, 
+				message, cttype, sdFormat.format(new Date()), callTemp.callid);
+		druidDao.insert(sql);
 	}
 
 	private String buildFrequentMsg(call callTemp) {
@@ -755,7 +798,6 @@ public class smartTes {
 		map.put("robotid", callTemp.robotId );
 		
 		return JSON.toJSONString(map);
-
 	}
 	
 	public String testRcv700(call callTemp){
@@ -786,9 +828,18 @@ public class smartTes {
 	}
 	
 	public String getCurrentTime(){
-		SimpleDateFormat sdFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS"); 
 		String myTime = sdFormat.format(new Date());
 		
 		return myTime;
 	}
+	
+	public void sqltest(call callTemp) {
+		Dao druidDao = new Dao();
+		
+		String sql = String.format("insert into tb_call_info (callid, callerid, calleeid, speaker, content, cttype, indate) "
+				+ "values(\"%s\",\"%s\",\"%s\",%d,\"%s\",%d,\"%s\")", 
+				callTemp.callid, callTemp.callerid, callTemp.calleeid, 0, "你好", 0, sdFormat.format(new Date()));
+		druidDao.insert(sql);
+	}
+	
 }
