@@ -35,10 +35,12 @@ public class smartTes {
 	final static int LONGOUT = 10 * 1000 - OUTIME;
 	
 	private static String broker = "";
+	private static String recordPath = "";
 	static {
         Properties properties = ConnectionPool.loadPropertiesFile("db_server.properties");
         try {
         	broker=properties.getProperty("broker");
+        	recordPath=properties.getProperty("recordpath");
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -626,7 +628,7 @@ public class smartTes {
 			// 缓存中取出这步的业务名称
 			map.put("flowdata", callTemp.flow);
 			Map<String, Object> params = new HashMap<String, Object>();
-			params.put("prompt", "/home/galaxyeye/Downloads/" + prompt);
+			params.put("prompt", recordPath + prompt);
 			params.put("wait", outTime);
 			params.put("retry", 0);
 			params.put("allow_interrupt", INVALIDTIME);//播放前1.5秒不能打断
@@ -715,7 +717,7 @@ public class smartTes {
 			params.put("recordpath", "");
 			params.put("filter_level", 0.5);
 			
-			after_params.put("prompt", "/home/galaxyeye/Downloads/" + prompt);
+			after_params.put("prompt", recordPath + prompt);
 			after_params.put("wait", outTime);
 			after_params.put("retry", 0);
 			map.put("params", after_params);
