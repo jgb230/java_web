@@ -9,6 +9,7 @@ import java.util.Hashtable;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Vector;
 
 import javax.servlet.http.HttpServletResponse;
 
@@ -36,18 +37,21 @@ public class smartTes {
 	
 	private static String broker = "";
 	private static String recordPath = "";
+	private static String tencentpath = "";
 	static {
         Properties properties = ConnectionPool.loadPropertiesFile("db_server.properties");
         try {
-        	broker=properties.getProperty("broker");
-        	recordPath=properties.getProperty("recordpath");
+        	broker = properties.getProperty("broker");
+        	recordPath = properties.getProperty("recordpath");
+        	tencentpath = properties.getProperty("tencentpath");
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 	
 	private static SimpleDateFormat sdFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS"); 
-	
+	private static SimpleDateFormat dtFormat = new SimpleDateFormat("yyyy-MM-dd"); 
+
 	private static final Logger log = Logger.getLogger(smartTes.class);
 	
 //	Hashtable<String, Integer> timeTable = new Hashtable<String, Integer>();
@@ -56,7 +60,8 @@ public class smartTes {
 	private boolean TEST = false;
 	
 	@RequestMapping("/smatrIvr")
-	public @ResponseBody Map<String, Object> smartDemo(HttpServletRequest request, HttpServletResponse response) throws Exception {
+	public @ResponseBody Map<String, Object> smartDemo(HttpServletRequest request, HttpServletResponse response) 
+			throws Exception {
 		Map<String, Object> map = new HashMap<String, Object>();
 		ZMQ.Context context = ZMQ.context(1);
 		ZMQ.Socket receiver = context.socket(ZMQ.DEALER);
@@ -80,7 +85,11 @@ public class smartTes {
 			e.printStackTrace();
 		}
 		
-		//sqltest(callTemp);
+//		System.out.println("tencent: " + getCurrentTime());
+//		tencentAI tAI =new tencentAI();
+//		String fileName = tencentpath + callTemp.callid;
+//		tAI.tts("我们是星眸！", fileName);
+//		System.out.println("tencent: " + getCurrentTime());
 		
 		sendMsg = buildSendMsg(jsonDate, callTemp, receiver);
 		System.out.println(getCurrentTime() +" sendMsg---" + sendMsg);
@@ -103,7 +112,11 @@ public class smartTes {
 			}
 			map = nothingFangyin(time, callTemp);
 			setTime(key, time);
-		}else {
+		}else if (sendMsg.startsWith("CS:")){
+			String msg = sendMsg.substring(sendMsg.indexOf("CS:")+3);
+			System.out.println("msg:--------" + msg);
+			map = noop(callTemp, msg);
+		}else{
 			if (!TEST){
 				boolean ret = receiver.send(sendMsg);
 				if (ret){
@@ -111,7 +124,7 @@ public class smartTes {
 					ZMQ.PollItem []items = {new ZMQ.PollItem(receiver, ZMQ.Poller.POLLIN)};
 					ZMQ.poll(items, OUTIME);
 					if (!items[0].isReadable()){
-						System.out.println(getCurrentTime() +"timeout nothingFangyin:" );
+						System.out.println(getCurrentTime() +" timeout nothingFangyin:" );
 						map = nothingFangyin(LONGOUT, callTemp);
 						if (!callTemp.action.equals("leave")) {
 							String key = callTemp.calleeid + callTemp.callerid;
@@ -401,12 +414,21 @@ public class smartTes {
 					// 频繁打断 暂时不用
 					//return buildFrequentMsg(callTemp);
 					return buildMsgMsg(message, callTemp);
+				}else if (isPlay && judgeFlow(callTemp).equals("CS")){
+					return "CS:" + message;
 				}else {
 					return buildMsgMsg(message, callTemp);
 				}
 			}
 			
 		} else if ("playback_result".equals(callTemp.action)) { // 放音超时结果
+			String message = String.valueOf(jsonDate.get("flowdata"));
+			if (!message.isEmpty()) {
+				insertCallinfo(callTemp, Speaker.USER, message, CntType.TXT);
+				if (judgeFlow(callTemp).equals("CS")) {
+					return buildMsgMsg(message, callTemp);
+				}
+			}
 			return buildPlayback(callTemp);
 		} else if ("leave".equals(callTemp.action)){ // 挂断
 			clear(callTemp);
@@ -462,6 +484,27 @@ public class smartTes {
 		map.put("result", 0);
 		map.put("play_time", 0);
 		return JSON.toJSONString(map);
+	}
+
+	private String judgeFlow(call callTemp)
+	{
+		String phone = "";
+		if (isRobotNum(callTemp.calleeid)) {
+			phone = callTemp.callerid;
+		}else {
+			phone = callTemp.calleeid;
+		}
+		if (phone.equals("17794589041")) {
+			return "CS";
+		}
+		return "DK";
+	}
+	
+	private boolean isRobotNum(String calleeid) {
+		if (calleeid.equals("8888") || calleeid.equals("9999")) {
+			return true;
+		}
+		return false;
 	}
 
 	private void sendInterupt(JSONObject jsonDate, call callTemp, Socket receiver) {
@@ -620,15 +663,16 @@ public class smartTes {
 	 *            放音音频
 	 * @author cxy
 	 * @version 2018-04-15
+	 * @throws Exception 
 	 */
-	public Map<String, Object> fangyin(String prompt, int outTime, call callTemp) {
+	public Map<String, Object> fangyin(String prompt, int outTime, call callTemp) throws Exception {
 		Map<String, Object> map = new HashMap<String, Object>();
 		if (!prompt.isEmpty()) {
 			map.put("action", "playback");
 			// 缓存中取出这步的业务名称
-			map.put("flowdata", callTemp.flow);
+			map.put("flowdata", "");
 			Map<String, Object> params = new HashMap<String, Object>();
-			params.put("prompt", recordPath + prompt);
+			params.put("prompt", buildPrompt(prompt, callTemp));
 			params.put("wait", outTime);
 			params.put("retry", 0);
 			params.put("allow_interrupt", INVALIDTIME);//播放前1.5秒不能打断
@@ -638,6 +682,33 @@ public class smartTes {
 		}
 
 		return null;
+	}
+
+	private Vector<String> buildPrompt(String prompt, call callTemp) throws Exception {
+		Vector<String> ret = new Vector<String>();
+		System.out.println(prompt);
+		String [] arr = prompt.split("\\|");
+		for (int i = 0; i < arr.length; i++) {
+			System.out.println("arr:" + i + "--" + arr[i]);
+			if (isRecord(arr[i])) {
+				String temp = recordPath + arr[i];
+				System.out.println("temp:" + temp);
+				ret.add(temp);
+			}else {
+				tencentAI tAI =new tencentAI();
+				String fileName = tencentpath + getCurrentDate() + "/" + callTemp.callid;
+				ret.add(tAI.tts(arr[i], fileName));
+			}
+		}
+		System.out.println("ret----" + ret);
+		return ret;
+	}
+
+	private boolean isRecord(String prompt) {
+		if(prompt.length() >4 &&prompt.substring(prompt.length()-4).equals(".wav")) {
+			return true;
+		}
+		return false;
 	}
 
 	public Map<String, Object> nothingFangyin(int outTime, call callTemp) {
@@ -672,6 +743,21 @@ public class smartTes {
 		return null;
 	}
 	
+	public Map<String, Object> noop(call callTemp, String flow) {
+		Map<String, Object> map = new HashMap<String, Object>();
+		if (!callTemp.action.isEmpty()) {
+			map.put("action", "noop");
+			// 缓存中取出这步的业务名称
+			map.put("flowdata", flow);
+			Map<String, Object> params = new HashMap<String, Object>();
+			params.put("usermsg", "");
+
+			map.put("params", params);
+			return map;
+		}
+
+		return null;
+	}
 	public Map<String, Object> console(call callTemp, String op) {
 		Map<String, Object> map = new HashMap<String, Object>();
 		if (!callTemp.action.isEmpty()) {
@@ -696,28 +782,34 @@ public class smartTes {
 	 * @author cxy
 	 * @version 2018-04-15
 	 * @return
+	 * @throws Exception 
 	 */
-	public Map<String, Object> defaultfangyin(String prompt, int outTime, call callTemp) {
+	public Map<String, Object> defaultfangyin(String prompt, int outTime, call callTemp) throws Exception {
 		Map<String, Object> map = new HashMap<String, Object>();
+		int pause = 400;
+		if (judgeFlow(callTemp).equals("CS")) {
+			//催收不打断
+			pause = 0;
+		}
 		if (!prompt.isEmpty()) {
 			Map<String, Object> params = new HashMap<String, Object>();
 			Map<String, Object> after_params = new HashMap<String, Object>();
 			map.put("action", "playback");
 			map.put("after_action", "start_asr");
-			map.put("flowdata", callTemp.flow);
+			map.put("flowdata", "");
 			map.put("after_ignore_error", false);
 			params.put("min_speak_ms", 100);
 			params.put("max_speak_ms", 10000);
 			params.put("min_pause_ms", 300);
 			params.put("max_pause_ms", 600);
-			params.put("pause_play_ms", 400);// 暂停播放毫秒
+			params.put("pause_play_ms", pause);// 暂停播放毫秒
 			params.put("threshold", 500);// VAD阈值，默认0，建议不要设置，如果一定要设置，建议
 											// 2000以下的值。
 			params.put("volume", 50);
 			params.put("recordpath", "");
 			params.put("filter_level", 0.5);
 			
-			after_params.put("prompt", recordPath + prompt);
+			after_params.put("prompt", buildPrompt(prompt, callTemp));
 			after_params.put("wait", outTime);
 			after_params.put("retry", 0);
 			map.put("params", after_params);
@@ -831,6 +923,12 @@ public class smartTes {
 	
 	public String getCurrentTime(){
 		String myTime = sdFormat.format(new Date());
+		
+		return myTime;
+	}
+	
+	public String getCurrentDate(){
+		String myTime = dtFormat.format(new Date());
 		
 		return myTime;
 	}
