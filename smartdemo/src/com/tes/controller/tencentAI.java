@@ -51,13 +51,13 @@ public class tencentAI {
 		
 		Map<String, String> params = new TreeMap<String, String>();
         params.put("app_id", appId);
-        params.put("speaker", "1");
+        params.put("speaker", "5");
         params.put("format", "2");
         params.put("volume", "0");
         params.put("speed", "100");
         params.put("text", ch);
-        params.put("aht", "0");
-        params.put("apc", "58");
+        params.put("aht", "6");
+        params.put("apc", "55");
         params.put("time_stamp", Long.toString(time/1000));
         params.put("nonce_str", Long.toString(nonce));
         params.put("sign", "");

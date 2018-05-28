@@ -51,6 +51,7 @@ public class smartTes {
 	
 	private static SimpleDateFormat sdFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS"); 
 	private static SimpleDateFormat dtFormat = new SimpleDateFormat("yyyy-MM-dd"); 
+	private static SimpleDateFormat msFormat = new SimpleDateFormat("HHmmss.SSS"); 
 
 	private static final Logger log = Logger.getLogger(smartTes.class);
 	
@@ -923,15 +924,19 @@ public class smartTes {
 	
 	public String getCurrentTime(){
 		String myTime = sdFormat.format(new Date());
-		
 		return myTime;
 	}
 	
 	public String getCurrentDate(){
 		String myTime = dtFormat.format(new Date());
-		
 		return myTime;
 	}
+	
+	public String getCurrentMin(){
+		String myTime = msFormat.format(new Date());
+		return myTime;
+	}
+	
 	
 	public void sqltest(call callTemp) {
 		Dao druidDao = new Dao();
