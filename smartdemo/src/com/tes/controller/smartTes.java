@@ -38,12 +38,24 @@ public class smartTes {
 	private static String broker = "";
 	private static String recordPath = "";
 	private static String tencentpath = "";
+	private static String fsrecord = "";
+	private static String debug = "";
+	private static String mode = "";
 	static {
         Properties properties = ConnectionPool.loadPropertiesFile("db_server.properties");
         try {
+        	debug = properties.getProperty("debug");
+        	mode = properties.getProperty("mode");
         	broker = properties.getProperty("broker");
-        	recordPath = properties.getProperty("recordpath");
-        	tencentpath = properties.getProperty("tencentpath");
+        	if (debug.equals("local")) {
+        		tencentpath = properties.getProperty("tencentpath1");
+            	recordPath = properties.getProperty("recordpath1");
+        	} else if (debug.equals("remote")) {
+        		tencentpath = properties.getProperty("tencentpath");
+            	recordPath = properties.getProperty("recordpath");
+        	}
+        	fsrecord = properties.getProperty("fsrecord");
+    		//selecttest();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -86,27 +98,21 @@ public class smartTes {
 			e.printStackTrace();
 		}
 		
-//		System.out.println("tencent: " + getCurrentTime());
-//		tencentAI tAI =new tencentAI();
-//		String fileName = tencentpath + callTemp.callid;
-//		tAI.tts("我们是星眸！", fileName);
-//		System.out.println("tencent: " + getCurrentTime());
-		
 		sendMsg = buildSendMsg(jsonDate, callTemp, receiver);
 		System.out.println(getCurrentTime() +" sendMsg---" + sendMsg);
 		
 		if (sendMsg.isEmpty() || callTemp.robotId.isEmpty()){
-			System.out.println(getCurrentTime() +" sendMsg is empty" );
+			System.out.println(getCurrentTime() +" sendMsg is empty callerid:" + getPhone(callTemp));
 			map =  noop(callTemp);
 		}else if (sendMsg.equals(RESUME)) {
-			System.out.println(getCurrentTime() +" resume play" );
+			System.out.println(getCurrentTime() +" resume play callerid:" + getPhone(callTemp) );
 			map =  console(callTemp, RESUME);
 		}else if (sendMsg.equals(INVALID)) {
-			System.out.println(getCurrentTime() +" invalid "+ INVALIDTIME/1000 +"S之内" );
+			System.out.println(getCurrentTime() +" invalid "+ INVALIDTIME/1000 +"S之内 callerid:" + getPhone(callTemp) );
 			map = noop(callTemp);
 		}else if (sendMsg.equals(ASRSTART)) {
 			String key = callTemp.calleeid + callTemp.callerid;
-			System.out.println(getCurrentTime() +" asrstart "+ INVALIDTIME/1000 +"S之内" );
+			System.out.println(getCurrentTime() +" asrstart "+ INVALIDTIME/1000 +"S之内 callerid:" + getPhone(callTemp) );
 			int time = 100;
 			if (callInfo.containsKey(key) && callInfo.get(key).getoutTime() != 0){
 				time = callInfo.get(key).getoutTime();
@@ -125,7 +131,7 @@ public class smartTes {
 					ZMQ.PollItem []items = {new ZMQ.PollItem(receiver, ZMQ.Poller.POLLIN)};
 					ZMQ.poll(items, OUTIME);
 					if (!items[0].isReadable()){
-						System.out.println(getCurrentTime() +" timeout nothingFangyin:" );
+						System.out.println(getCurrentTime() +" timeout nothingFangyin, callerid:" + getPhone(callTemp) );
 						map = nothingFangyin(LONGOUT, callTemp);
 						if (!callTemp.action.equals("leave")) {
 							String key = callTemp.calleeid + callTemp.callerid;
@@ -168,11 +174,8 @@ public class smartTes {
 		String recvMsg = "";
 		String sendMsg = "";
 		String robotId = "";
-		if (isSmart(callTemp.calleeid)) {
-			phone = callTemp.callerid;
-		}else {
-			phone = callTemp.calleeid;
-		}
+		phone = getPhone(callTemp);
+
 		callTemp.setUserId(phone);
 //		if (robotTable.containsKey(key)) {
 //			robotId = robotTable.get(key);
@@ -210,7 +213,7 @@ public class smartTes {
 				System.out.println(getCurrentTime() +"  cmd:" + cmd + " action:" + callTemp.action);
 				if (cmd == 700){
 					if (!jsonDate.containsKey("robotList")){
-						throw new Exception(getCurrentTime() + "没有robotList项");
+						throw new Exception(getCurrentTime() + "没有robotList项 callerid:" + getPhone(callTemp));
 					}
 					String robotList = JSONObject.toJSONString(jsonDate.get("robotList"));
 					@SuppressWarnings("unchecked")
@@ -291,14 +294,21 @@ public class smartTes {
 		return JSON.toJSONString(map);
 	}
 
-	private boolean isSmart(String calleeid) {
-		if (calleeid.equals("8888") || calleeid.equals("9999")) {
-			return true;
+	private String getPhone(call callTemp) {
+		if (callTemp.calleeid.equals("8888") || callTemp.calleeid.equals("9999")) {
+			return callTemp.callerid;
 		}else {
-			return false;
+			return callTemp.calleeid;
 		}
 	}
 
+	private String getAI(call callTemp) {
+		if (callTemp.calleeid.equals("8888") || callTemp.calleeid.equals("9999")) {
+			return callTemp.calleeid;
+		}else {
+			return callTemp.callerid;
+		}
+	}
 	private Map<String, Object> buildMap(String recvMsg, call callTemp) throws Exception {
 		Map<String, Object> map = new HashMap<String, Object>();
 		JSONObject jsonDate;
@@ -386,6 +396,7 @@ public class smartTes {
 	private String buildSendMsg(JSONObject jsonDate, call callTemp, ZMQ.Socket receiver) {
 		String key = callTemp.calleeid + callTemp.callerid;
 		if ("enter".equals(callTemp.action)) { // 接通
+			recordEnter(callTemp);
 			return buildEndterMsg(callTemp);
 		} else if (("asrprogress_notify".equals(callTemp.action))) { // 停顿识别（逗号识别）
 			return RESUME;
@@ -395,7 +406,7 @@ public class smartTes {
 			String message = String.valueOf(jsonDate.get("message"));
 			insertCallinfo(callTemp, Speaker.USER, message, CntType.TXT);
 			boolean isPlay = (boolean) jsonDate.get("playstate");
-			if (callInfo.containsKey(key)) {
+			if (callInfo.containsKey(key) && isPlay) {
 				if (callInfo.get(key).getlastedPlay().getTime() + INVALIDTIME + ASRTIME > now.getTime()) {
 					// 播放前1.5秒之内为无效  500ms为asr识别估计时间
 					return INVALID;
@@ -432,6 +443,7 @@ public class smartTes {
 			}
 			return buildPlayback(callTemp);
 		} else if ("leave".equals(callTemp.action)){ // 挂断
+			recordHungup(callTemp);
 			clear(callTemp);
 			return buildLeaveMsg(callTemp);
 		} else if ("wait_result".equals(callTemp.action)){ // wait超时
@@ -440,6 +452,53 @@ public class smartTes {
 			return ASRSTART;
 		}
 		return "";
+	}
+
+	private void recordEnter(call callTemp) {
+		Dao druidDao = new Dao();
+		String key = callTemp.calleeid + callTemp.callerid;
+		if (callInfo.containsKey(key)){
+			callInfo.get(key).setAnswerTime(new Date());
+		}else {
+			callInfo.put(key, new CallMsg());
+			callInfo.get(key).setAnswerTime(new Date());
+		}
+		String phone = getPhone(callTemp);
+		String sql = String.format("update tb_callrecord set cr_status=3 "
+				+ "where cr_mobile='%s' and cr_status=2", phone);
+		
+		druidDao.update(sql, "HJ");
+	}
+	private void recordHungup(call callTemp) {
+		Dao druidDao = new Dao();
+		String key = callTemp.calleeid + callTemp.callerid;
+		String phone = getPhone(callTemp);
+		Date answerDate = new Date();
+		if (callInfo.containsKey(key)){
+			answerDate = callInfo.get(key).getAnswerTime();
+			System.out.println(" ############ "+sdFormat.format(callInfo.get(key).getAnswerTime()));
+		}
+		Date endDate = new Date();
+		long billsec = endDate.getTime() - answerDate.getTime();
+		System.out.println(sdFormat.format(endDate)+" ############ "+sdFormat.format(answerDate)+" billsec:"+billsec);
+		String strAsr = druidDao.selectAsr(callTemp.callid, "GL");
+		String recordfile = fsrecord + buildFileName(callTemp);
+		String sql = String.format("update tb_callrecord set cr_endtime='%s',cr_billsec=%d,  cr_status = 10,"
+				+ "cr_totalsec=((UNIX_TIMESTAMP('%s') - UNIX_TIMESTAMP(cr_calltime)) *1000 ),"
+				+ "cr_asrdetail = '%s', cr_file = '%s'"
+				+ "where cr_mobile='%s' and cr_status=3", 
+				sdFormat.format(endDate), billsec, sdFormat.format(endDate), strAsr, recordfile, phone);
+		druidDao.update(sql, "HJ");
+		
+	}
+
+	private String buildFileName(call callTemp) {
+		String ret = "";
+		Date now = new Date();
+		SimpleDateFormat hourFormat = new SimpleDateFormat("HH-mm-ss");
+		ret = getPhone(callTemp) + "." + getAI(callTemp) + "." + hourFormat.format(now) + "." + callTemp.callid + ".wav";
+		
+		return ret;
 	}
 
 	private void insertCallinfo(call callTemp, Speaker speak, String message, CntType type) {
@@ -464,9 +523,47 @@ public class smartTes {
 				+ "from tb_call_info where callid=\"%s\"", 
 				callTemp.callid, callTemp.callerid, callTemp.calleeid, speaker, 
 				message, cttype, sdFormat.format(new Date()), callTemp.callid);
-		druidDao.insert(sql);
+		druidDao.insert(sql, "GL");
 	}
 
+	private void insertTencentTTS(String file, String content) {
+		Dao druidDao = new Dao();
+		
+		String sql = String.format("insert into tb_tencent_content (id, content) "
+				+ " values(\"%s\",\"%s\")",
+				file, content);
+		druidDao.insert(sql, "GL");
+	}
+	
+	private String selectTencentTTS(String content) {
+		Dao druidDao = new Dao();
+		
+		String sql = String.format("select id from tb_tencent_content"
+				+ " where content='%s'",
+				 content);
+		return druidDao.select(sql, "GL");
+	}
+	
+	private String selectType(String callid) {
+		Dao druidDao = new Dao();
+		
+		String sql = String.format("select type from tb_call_stat"
+				+ " where callid='%s'",
+				callid);
+		return druidDao.select(sql, "GL");
+	}
+	
+	private String selectTypeHJ(String phone) {
+		Dao druidDao = new Dao();
+		
+		String sql = String.format("select vb_mode from tb_verbal where " + 
+				"vb_uuid=(select task_verbal from tb_task where " + 
+				"task_uuid=(select cr_taskid from tb_callrecord " + 
+				"where cr_mobile='%s' and cr_status=3));",
+				phone);
+		return druidDao.select(sql, "HJ");
+	}
+	
 	private String buildFrequentMsg(call callTemp) {
 		Map<String, Object> map = new HashMap<String, Object>();
 		map.put("cmd", 1230);
@@ -489,23 +586,37 @@ public class smartTes {
 
 	private String judgeFlow(call callTemp)
 	{
-		String phone = "";
-		if (isRobotNum(callTemp.calleeid)) {
-			phone = callTemp.callerid;
-		}else {
-			phone = callTemp.calleeid;
+		System.out.println(mode + "----");
+		if (mode.equals("galaxy")) {
+			return selectType(callTemp.callid).toUpperCase();
+		}else if (mode.equals("HJ")) {
+			return selectTypeHJ(getPhone(callTemp)).toUpperCase();
 		}
-		if (phone.equals("17794589041")) {
-			return "CS";
-		}
-		return "DK";
+		return selectType(callTemp.callid).toUpperCase();
 	}
-	
-	private boolean isRobotNum(String calleeid) {
-		if (calleeid.equals("8888") || calleeid.equals("9999")) {
-			return true;
+	private String buildSvc(String judgeFlow,call callTemp) {
+		if (mode.equals("galaxy")) {
+			if (judgeFlow.equals("CS")) {
+				return "催收呼叫系统";
+			}else if (judgeFlow.equals("DK")) {
+				return "贷款呼叫系统";
+			}
+		}else if (mode.equals("HJ")) {
+			return selectFlowHJ(getPhone(callTemp)).toUpperCase();
 		}
-		return false;
+		
+		return "";
+	}
+
+	private String selectFlowHJ(String phone) {
+		Dao druidDao = new Dao();
+		
+		String sql = String.format("select vb_content from tb_verbal where " + 
+				"vb_uuid=(select task_verbal from tb_task where " + 
+				"task_uuid=(select cr_taskid from tb_callrecord " + 
+				"where cr_mobile='%s' and cr_status=3));",
+				phone);
+		return druidDao.select(sql, "HJ");
 	}
 
 	private void sendInterupt(JSONObject jsonDate, call callTemp, Socket receiver) {
@@ -645,6 +756,7 @@ public class smartTes {
 		map.put("robotid", callTemp.robotId );
 		//map.put("uid", calleeid);
 		map.put("uid", callTemp.userId);
+		map.put("user_service", buildSvc(judgeFlow(callTemp), callTemp));
 		return JSON.toJSONString(map);
 		
 //		String sendMsg = String.format("{" 
@@ -656,6 +768,7 @@ public class smartTes {
 //		
 //		return sendMsg;
 	}
+
 
 	/**
 	 * 根据流程，组装对应的放音json
@@ -696,9 +809,23 @@ public class smartTes {
 				System.out.println("temp:" + temp);
 				ret.add(temp);
 			}else {
-				tencentAI tAI =new tencentAI();
-				String fileName = tencentpath + getCurrentDate() + "/" + callTemp.callid;
-				ret.add(tAI.tts(arr[i], fileName));
+				String file = selectTencentTTS(arr[i]);
+				System.out.println(getCurrentTime() + " result:" + file);
+				String fileName = "";
+				if (!file.isEmpty()) {
+					fileName = tencentpath + file;
+					ret.add(fileName);
+				}else {
+					tencentAI tAI =new tencentAI();
+					String fileTemp = tencentpath + getCurrentDate() + "/" + callTemp.callid;
+					fileName = tAI.tts(arr[i], fileTemp);
+					ret.add(fileName);
+					String [] filev = fileName.split("/");
+					int len = filev.length;
+					file = filev[len-2] + "/" + filev[len-1];
+					
+					insertTencentTTS(file, arr[i]);
+				}
 			}
 		}
 		System.out.println("ret----" + ret);
@@ -922,29 +1049,19 @@ public class smartTes {
 		return value;
 	}
 	
-	public String getCurrentTime(){
+	public static String getCurrentTime(){
 		String myTime = sdFormat.format(new Date());
 		return myTime;
 	}
 	
-	public String getCurrentDate(){
+	public static String getCurrentDate(){
 		String myTime = dtFormat.format(new Date());
 		return myTime;
 	}
 	
-	public String getCurrentMin(){
+	public static String getCurrentMin(){
 		String myTime = msFormat.format(new Date());
 		return myTime;
-	}
-	
-	
-	public void sqltest(call callTemp) {
-		Dao druidDao = new Dao();
-		
-		String sql = String.format("insert into tb_call_info (callid, callerid, calleeid, speaker, content, cttype, indate) "
-				+ "values(\"%s\",\"%s\",\"%s\",%d,\"%s\",%d,\"%s\")", 
-				callTemp.callid, callTemp.callerid, callTemp.calleeid, 0, "你好", 0, sdFormat.format(new Date()));
-		druidDao.insert(sql);
 	}
 	
 }

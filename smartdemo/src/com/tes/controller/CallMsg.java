@@ -10,6 +10,7 @@ public class CallMsg {
 	String robotId;
 	List<Date> interrupt;
 	Date lastedPlay;
+	Date answerTime;
 	SimpleDateFormat sdFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS"); 
 
 	CallMsg(){
@@ -39,6 +40,14 @@ public class CallMsg {
 	
 	public int getoutTime() {
 		return outTime;
+	}
+	
+	public void setAnswerTime(Date answer) {
+		answerTime = answer;
+	}
+	
+	public Date getAnswerTime() {
+		return answerTime;
 	}
 	
 	public void setRobotId(String robot) {
@@ -79,6 +88,8 @@ public class CallMsg {
 		ret += sdFormat.format(lastedPlay);
 		ret += " outTime:";
 		ret += outTime;
+		ret += " answerTime:";
+		ret += sdFormat.format(answerTime);
 		return ret;
 	}
 }

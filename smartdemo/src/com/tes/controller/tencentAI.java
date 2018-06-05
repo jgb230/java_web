@@ -53,7 +53,7 @@ public class tencentAI {
         params.put("app_id", appId);
         params.put("speaker", "5");
         params.put("format", "2");
-        params.put("volume", "0");
+        params.put("volume", "7");
         params.put("speed", "100");
         params.put("text", ch);
         params.put("aht", "6");
