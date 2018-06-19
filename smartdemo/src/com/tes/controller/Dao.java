@@ -84,9 +84,9 @@ public class Dao {
 //	        	System.out.println("tmp:"+tmp);
 	        	type = resultSet.getInt("cttype");
 	        	if (type == 0) {
-	        		ret += ("A:"+tmp+"\n");
+	        		ret += ("A:"+tmp.replaceAll("\\d+\\.", "").replaceAll(";", "")+"\\|");
 	        	}else if (type == 1) {
-	        		ret += ("Q:"+buildContent(tmp, conn)+"\n");
+	        		ret += ("Q:"+buildContent(tmp, conn)+"\\|");
 	        	}
             }
 	    } catch (SQLException e) {
@@ -104,6 +104,15 @@ public class Dao {
 		return ret;
 	}
 	
+	public String trimTxt(String tmp) {
+		String ret="";
+		String [] ct = tmp.split(";");
+		for (int i=0; i<ct.length; i++) {
+			ret += ct[i].substring(ct[i].indexOf(".")+1);
+		}
+		return ret;
+	}
+
 	private String buildContent(String tmp, DruidPooledConnection conn) {
 		String ret = "";
 		if (tmp.indexOf("\\|") != -1) {

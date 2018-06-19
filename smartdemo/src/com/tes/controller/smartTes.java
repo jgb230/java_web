@@ -41,12 +41,14 @@ public class smartTes {
 	private static String fsrecord = "";
 	private static String debug = "";
 	private static String mode = "";
+	private static String defaultmode = "";
 	static {
         Properties properties = ConnectionPool.loadPropertiesFile("db_server.properties");
         try {
         	debug = properties.getProperty("debug");
         	mode = properties.getProperty("mode");
         	broker = properties.getProperty("broker");
+        	defaultmode = properties.getProperty("defaultmode");
         	if (debug.equals("local")) {
         		tencentpath = properties.getProperty("tencentpath1");
             	recordPath = properties.getProperty("recordpath1");
@@ -55,7 +57,7 @@ public class smartTes {
             	recordPath = properties.getProperty("recordpath");
         	}
         	fsrecord = properties.getProperty("fsrecord");
-    		//selecttest();
+    		//trimTest();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -166,6 +168,11 @@ public class smartTes {
 		context.close();
 		
 		return map;
+	}
+
+	private static void trimTest() {
+		String tesTxt = "16.儿子。;17.合并。;";
+		System.out.println("___________________"+tesTxt.replaceAll("\\d+\\.", "").replaceAll(";", ""));
 	}
 
 	private void getRobot(call callTemp, ZMQ.Socket receiver) throws Exception {
@@ -339,7 +346,7 @@ public class smartTes {
 			setTime(key, outTime);
 		}else if (cmd == 1020){
 			map = hangUp("");
-			clear(callTemp);
+			//clear(callTemp);
 		}else if (cmd == 1021) {
 			int time = 100;
 //			if (timeTable.containsKey(key)){
@@ -396,7 +403,9 @@ public class smartTes {
 	private String buildSendMsg(JSONObject jsonDate, call callTemp, ZMQ.Socket receiver) {
 		String key = callTemp.calleeid + callTemp.callerid;
 		if ("enter".equals(callTemp.action)) { // 接通
-			recordEnter(callTemp);
+			if (mode.equals("HJ")) {
+				recordEnter(callTemp);
+			}
 			return buildEndterMsg(callTemp);
 		} else if (("asrprogress_notify".equals(callTemp.action))) { // 停顿识别（逗号识别）
 			return RESUME;
@@ -443,7 +452,9 @@ public class smartTes {
 			}
 			return buildPlayback(callTemp);
 		} else if ("leave".equals(callTemp.action)){ // 挂断
-			recordHungup(callTemp);
+			if (mode.equals("HJ")) {
+				recordHungup(callTemp);
+			}
 			clear(callTemp);
 			return buildLeaveMsg(callTemp);
 		} else if ("wait_result".equals(callTemp.action)){ // wait超时
@@ -495,8 +506,7 @@ public class smartTes {
 	private String buildFileName(call callTemp) {
 		String ret = "";
 		Date now = new Date();
-		SimpleDateFormat hourFormat = new SimpleDateFormat("HH-mm-ss");
-		ret = getPhone(callTemp) + "." + getAI(callTemp) + "." + hourFormat.format(now) + "." + callTemp.callid + ".wav";
+		ret = dtFormat.format(now) + "/" + getPhone(callTemp) + "." + getAI(callTemp) + "."  + callTemp.callid + ".wav";
 		
 		return ret;
 	}
@@ -544,12 +554,12 @@ public class smartTes {
 		return druidDao.select(sql, "GL");
 	}
 	
-	private String selectType(String callid) {
+	private String selectType(call callTemp) {
 		Dao druidDao = new Dao();
 		
 		String sql = String.format("select type from tb_call_stat"
 				+ " where callid='%s'",
-				callid);
+				callTemp.callid);
 		return druidDao.select(sql, "GL");
 	}
 	
@@ -587,25 +597,49 @@ public class smartTes {
 	private String judgeFlow(call callTemp)
 	{
 		System.out.println(mode + "----");
+		String flow = "";
 		if (mode.equals("galaxy")) {
-			return selectType(callTemp.callid).toUpperCase();
+			String judgeFlow = selectType(callTemp).toUpperCase();
+			flow = selectFlow(judgeFlow);
 		}else if (mode.equals("HJ")) {
-			return selectTypeHJ(getPhone(callTemp)).toUpperCase();
+			flow=  selectTypeHJ(getPhone(callTemp)).toUpperCase();
 		}
-		return selectType(callTemp.callid).toUpperCase();
+		if (flow.isEmpty()) {
+			flow = selectFlow(defaultmode);
+		}
+		return flow;
 	}
-	private String buildSvc(String judgeFlow,call callTemp) {
+	private String selectFlow(String judgeFlow) {
+		Dao druidDao = new Dao();
+		String sql = String.format("select cs_mode from tb_call_service where " + 
+				"cs_uuid='%s';", judgeFlow);
+		return druidDao.select(sql, "GL");
+	}
+
+	private String buildSvc(call callTemp) {
+		String srv = "";
 		if (mode.equals("galaxy")) {
-			if (judgeFlow.equals("CS")) {
-				return "催收呼叫系统";
-			}else if (judgeFlow.equals("DK")) {
-				return "贷款呼叫系统";
-			}
+//			if (judgeFlow.equals("CS")) {
+//				return "催收呼叫系统";
+//			}else if (judgeFlow.equals("DK")) {
+//				return "贷款呼叫系统";
+//			}
+			String judgeFlow = selectType(callTemp).toUpperCase();
+			srv = selectFlowGL(judgeFlow).toUpperCase();
 		}else if (mode.equals("HJ")) {
-			return selectFlowHJ(getPhone(callTemp)).toUpperCase();
+			srv = selectFlowHJ(getPhone(callTemp)).toUpperCase();
 		}
-		
-		return "";
+		if (srv.isEmpty()) {
+			srv = selectFlowGL(defaultmode).toUpperCase();
+		}
+		return srv;
+	}
+
+	private String selectFlowGL(String judgeFlow) {
+		Dao druidDao = new Dao();
+		String sql = String.format("select cs_content from tb_call_service where " + 
+				"cs_uuid='%s';", judgeFlow);
+		return druidDao.select(sql, "GL");
 	}
 
 	private String selectFlowHJ(String phone) {
@@ -756,7 +790,7 @@ public class smartTes {
 		map.put("robotid", callTemp.robotId );
 		//map.put("uid", calleeid);
 		map.put("uid", callTemp.userId);
-		map.put("user_service", buildSvc(judgeFlow(callTemp), callTemp));
+		map.put("user_service", buildSvc(callTemp));
 		return JSON.toJSONString(map);
 		
 //		String sendMsg = String.format("{" 

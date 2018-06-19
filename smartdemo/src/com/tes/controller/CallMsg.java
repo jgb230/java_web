@@ -18,6 +18,7 @@ public class CallMsg {
 		robotId = "";
 		interrupt = new ArrayList<Date>();
 		lastedPlay = new Date();
+		answerTime = new Date();
 	}
 	
 	CallMsg(String robot){
@@ -25,6 +26,7 @@ public class CallMsg {
 		robotId = robot;
 		interrupt = new ArrayList<Date>();
 		lastedPlay = new Date();
+		answerTime = new Date();
 	}
 	
 	CallMsg(int out){
@@ -32,6 +34,7 @@ public class CallMsg {
 		robotId = "";
 		interrupt = new ArrayList<Date>();
 		lastedPlay = new Date();
+		answerTime = new Date();
 	}
 	
 	public void setoutTime(int out) {
