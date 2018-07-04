@@ -42,6 +42,11 @@ public class smartTes {
 	private static String debug = "";
 	private static String mode = "";
 	private static String defaultmode = "";
+	
+	private static String speed = "";
+	private static String aht = "";
+	private static String apc = "";
+	
 	static {
         Properties properties = ConnectionPool.loadPropertiesFile("db_server.properties");
         try {
@@ -49,6 +54,11 @@ public class smartTes {
         	mode = properties.getProperty("mode");
         	broker = properties.getProperty("broker");
         	defaultmode = properties.getProperty("defaultmode");
+        	
+        	speed = properties.getProperty("tencentspeed");
+        	aht = properties.getProperty("tencentaht");
+        	apc = properties.getProperty("tencentapc");
+        	
         	if (debug.equals("local")) {
         		tencentpath = properties.getProperty("tencentpath1");
             	recordPath = properties.getProperty("recordpath1");
@@ -57,7 +67,6 @@ public class smartTes {
             	recordPath = properties.getProperty("recordpath");
         	}
         	fsrecord = properties.getProperty("fsrecord");
-    		//trimTest();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -73,6 +82,14 @@ public class smartTes {
 //	Hashtable<String, String> robotTable = new Hashtable<String, String>();
 	Hashtable<String, CallMsg> callInfo = new Hashtable<String, CallMsg>();
 	private boolean TEST = false;
+	
+	static {
+		try {
+			//trimTest();
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
 	
 	@RequestMapping("/smatrIvr")
 	public @ResponseBody Map<String, Object> smartDemo(HttpServletRequest request, HttpServletResponse response) 
@@ -170,9 +187,26 @@ public class smartTes {
 		return map;
 	}
 
-	private static void trimTest() {
-		String tesTxt = "16.儿子。;17.合并。;";
-		System.out.println("___________________"+tesTxt.replaceAll("\\d+\\.", "").replaceAll(";", ""));
+	private static void trimTest() throws Exception {
+		Dao druidDao = new Dao();
+		long billsec =(long) 1.0;
+		
+		Date endDate = new Date();
+		String sql = String.format("update tb_callrecord set cr_endtime=?,cr_billsec=?,  cr_status = 10,"
+				+ "cr_totalsec=((UNIX_TIMESTAMP(?) - UNIX_TIMESTAMP(cr_calltime)) *1000 ),"
+				+ "cr_asrdetail = ?, cr_file = ? "
+				+ "where cr_mobile=? and cr_status=3");
+		
+		List<Object> list = new ArrayList<Object>();
+		List<List<Object>> listall = new ArrayList<List<Object>>();
+		list.add(sdFormat.format(endDate));
+		list.add(billsec);
+		list.add(sdFormat.format(endDate));
+		list.add("1111111");
+		list.add("aaaaa");
+		list.add("18600227230");
+		listall.add(list);
+		druidDao.execute(sql,listall, "HJ");
 	}
 
 	private void getRobot(call callTemp, ZMQ.Socket receiver) throws Exception {
@@ -335,13 +369,25 @@ public class smartTes {
 			}
 			int outTime = (Integer)jsonDate.get("timeout");
 			String message = String.valueOf(jsonDate.get("content"));
-			System.out.println(getCurrentTime() +" outTime:" + outTime + " message:" + message );
-			insertCallinfo(callTemp, Speaker.ROBOT, message, CntType.RECORD );
-			if ("enter".equals(callTemp.action)){// 接通
-				map = defaultfangyin(message, 0, callTemp);
+			int position = message.indexOf("[SMS]");
+			if (position != -1) {
+				String msg = buildSMS(message.substring(position + 5));
+				String phone = getPhone(callTemp);
+				System.out.println(getCurrentTime() + " send sms phone:" + phone + " msg:" + msg);
+				int ret = SmsClient.sendSms(phone, msg);
+				if (ret != 0) {
+					System.out.println(getCurrentTime() + " send sms failed! err:" + ret);
+				}
+				map = nothingFangyin(outTime, callTemp);
 			}else {
-				map = fangyin(message, 0, callTemp);
-				setLastedPlay(callTemp);
+				System.out.println(getCurrentTime() +" outTime:" + outTime + " message:" + message );
+				insertCallinfo(callTemp, Speaker.ROBOT, message, CntType.RECORD );
+				if ("enter".equals(callTemp.action)){// 接通
+					map = defaultfangyin(message, 0, callTemp);
+				}else {
+					map = fangyin(message, 0, callTemp);
+					setLastedPlay(callTemp);
+				}
 			}
 			setTime(key, outTime);
 		}else if (cmd == 1020){
@@ -359,6 +405,11 @@ public class smartTes {
 			setTime(key, time);
 		}
 		return map;
+	}
+
+	private String buildSMS(String str) {
+		
+		return str;
 	}
 
 	private void setLastedPlay(call callTemp) {
@@ -415,7 +466,7 @@ public class smartTes {
 			String message = String.valueOf(jsonDate.get("message"));
 			insertCallinfo(callTemp, Speaker.USER, message, CntType.TXT);
 			boolean isPlay = (boolean) jsonDate.get("playstate");
-			if (callInfo.containsKey(key) && isPlay) {
+			if (callInfo.containsKey(key) && isPlay && !judgeFlow(callTemp).equals("CS")) {
 				if (callInfo.get(key).getlastedPlay().getTime() + INVALIDTIME + ASRTIME > now.getTime()) {
 					// 播放前1.5秒之内为无效  500ms为asr识别估计时间
 					return INVALID;
@@ -431,12 +482,12 @@ public class smartTes {
 					return buildMsgMsg("", callTemp);
 				}
 			}else {
-				if (isPlay && callInfo.containsKey(key) && callInfo.get(key).isFrequent(now)) {
+				if (isPlay && judgeFlow(callTemp).equals("CS")){
+					return "CS:" + message;
+				}else if (isPlay && callInfo.containsKey(key) && callInfo.get(key).isFrequent(now)) {
 					// 频繁打断 暂时不用
 					//return buildFrequentMsg(callTemp);
 					return buildMsgMsg(message, callTemp);
-				}else if (isPlay && judgeFlow(callTemp).equals("CS")){
-					return "CS:" + message;
 				}else {
 					return buildMsgMsg(message, callTemp);
 				}
@@ -491,16 +542,26 @@ public class smartTes {
 		}
 		Date endDate = new Date();
 		long billsec = endDate.getTime() - answerDate.getTime();
-		System.out.println(sdFormat.format(endDate)+" ############ "+sdFormat.format(answerDate)+" billsec:"+billsec);
 		String strAsr = druidDao.selectAsr(callTemp.callid, "GL");
 		String recordfile = fsrecord + buildFileName(callTemp);
-		String sql = String.format("update tb_callrecord set cr_endtime='%s',cr_billsec=%d,  cr_status = 10,"
-				+ "cr_totalsec=((UNIX_TIMESTAMP('%s') - UNIX_TIMESTAMP(cr_calltime)) *1000 ),"
-				+ "cr_asrdetail = '%s', cr_file = '%s'"
-				+ "where cr_mobile='%s' and cr_status=3", 
-				sdFormat.format(endDate), billsec, sdFormat.format(endDate), strAsr, recordfile, phone);
-		druidDao.update(sql, "HJ");
+		System.out.println(sdFormat.format(endDate)+
+				" ############ "+sdFormat.format(answerDate)+" billsec:"+ billsec +
+				" recordfile:" + recordfile + " phone:" + phone);
+		String sql = String.format("update tb_callrecord set cr_endtime=?,cr_billsec=?,  cr_status = 10,"
+				+ "cr_totalsec=((UNIX_TIMESTAMP(?) - UNIX_TIMESTAMP(cr_calltime)) *1000 ),"
+				+ "cr_asrdetail = ?, cr_file = ? "
+				+ "where cr_mobile=? and cr_status=3");
 		
+		List<Object> list = new ArrayList<Object>();
+		List<List<Object>> listall = new ArrayList<List<Object>>();
+		list.add(sdFormat.format(endDate));
+		list.add(billsec);
+		list.add(sdFormat.format(endDate));
+		list.add(strAsr);
+		list.add(recordfile);
+		list.add(phone);
+		listall.add(list);
+		druidDao.execute(sql,listall, "HJ");
 	}
 
 	private String buildFileName(call callTemp) {
@@ -529,11 +590,21 @@ public class smartTes {
 		}
 		
 		String sql = String.format("insert into tb_call_info (callid, callerid, calleeid, speaker, content, cttype, indate, id) "
-				+ " select \"%s\",\"%s\",\"%s\",%d,\"%s\",%d,\"%s\",IFNULL(max(id)+1,1) "
-				+ "from tb_call_info where callid=\"%s\"", 
-				callTemp.callid, callTemp.callerid, callTemp.calleeid, speaker, 
-				message, cttype, sdFormat.format(new Date()), callTemp.callid);
-		druidDao.insert(sql, "GL");
+				+ " select ?,?,?,?,?,?,?,IFNULL(max(id)+1,1) "
+				+ "from tb_call_info where callid=?");
+		
+		List<Object> list = new ArrayList<Object>();
+		List<List<Object>> listall = new ArrayList<List<Object>>();
+		list.add(callTemp.callid);
+		list.add(callTemp.callerid);
+		list.add(callTemp.calleeid);
+		list.add(speaker);
+		list.add(message);
+		list.add(cttype);
+		list.add(sdFormat.format(new Date()));
+		list.add(callTemp.callid);
+		listall.add(list);
+		druidDao.execute(sql,listall, "GL");
 	}
 
 	private void insertTencentTTS(String file, String content) {
@@ -567,8 +638,8 @@ public class smartTes {
 		Dao druidDao = new Dao();
 		
 		String sql = String.format("select vb_mode from tb_verbal where " + 
-				"vb_uuid=(select task_verbal from tb_task where " + 
-				"task_uuid=(select cr_taskid from tb_callrecord " + 
+				"vb_uuid in (select task_verbal from tb_task where " + 
+				"task_id in (select cr_taskid from tb_callrecord " + 
 				"where cr_mobile='%s' and cr_status=3));",
 				phone);
 		return druidDao.select(sql, "HJ");
@@ -605,7 +676,7 @@ public class smartTes {
 			flow=  selectTypeHJ(getPhone(callTemp)).toUpperCase();
 		}
 		if (flow.isEmpty()) {
-			flow = selectFlow(defaultmode);
+			flow = selectFlow(defaultmode).toUpperCase();
 		}
 		return flow;
 	}
@@ -646,8 +717,8 @@ public class smartTes {
 		Dao druidDao = new Dao();
 		
 		String sql = String.format("select vb_content from tb_verbal where " + 
-				"vb_uuid=(select task_verbal from tb_task where " + 
-				"task_uuid=(select cr_taskid from tb_callrecord " + 
+				"vb_uuid in (select task_verbal from tb_task where " + 
+				"task_id in (select cr_taskid from tb_callrecord " + 
 				"where cr_mobile='%s' and cr_status=3));",
 				phone);
 		return druidDao.select(sql, "HJ");
@@ -852,7 +923,7 @@ public class smartTes {
 				}else {
 					tencentAI tAI =new tencentAI();
 					String fileTemp = tencentpath + getCurrentDate() + "/" + callTemp.callid;
-					fileName = tAI.tts(arr[i], fileTemp);
+					fileName = tAI.tts(arr[i], fileTemp, speed, aht, apc);
 					ret.add(fileName);
 					String [] filev = fileName.split("/");
 					int len = filev.length;
@@ -948,7 +1019,7 @@ public class smartTes {
 	 */
 	public Map<String, Object> defaultfangyin(String prompt, int outTime, call callTemp) throws Exception {
 		Map<String, Object> map = new HashMap<String, Object>();
-		int pause = 400;
+		int pause = 2000;
 		if (judgeFlow(callTemp).equals("CS")) {
 			//催收不打断
 			pause = 0;
