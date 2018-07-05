@@ -1,11 +1,15 @@
 package com.tes.controller;
 
 import java.io.IOException;
+import java.security.MessageDigest;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Map;
 import java.util.TreeMap;
 
 import org.json.JSONException;
 
+import com.alibaba.fastjson.JSONObject;
 import com.aliyuncs.exceptions.ClientException;
 import com.github.qcloudsms.SmsSingleSender;
 import com.github.qcloudsms.SmsSingleSenderResult;
@@ -28,6 +32,8 @@ public class SmsClient {
 			return sendSmsBatch(phone, content, userid);
 		}else if (type.equals("SMSSERVICE")) {
 			return sendSmsService(phone, content, userid);
+		}else if (type.equals("YIMEI")) {
+			return sendYimei(phone, content, userid);
 		}
 		return sendSmsBatch(phone, content, userid);
 		
@@ -61,6 +67,45 @@ public class SmsClient {
         }
 	}
 
+	private static int sendYimei(String phone, String msg, String userid) throws Exception {
+		Dao druidDao = new Dao();
+	    Map<String,String> map = druidDao.getSmsGW(userid, "HJ");
+	    String appid = map.get("sgw_appid");
+	    String appkey = map.get("sgw_appkey");
+	    String url = map.get("sgw_url");
+	    
+	    SimpleDateFormat sdFormat = new SimpleDateFormat("yyyyMMddHHmmss"); 
+	    String time = sdFormat.format(new Date());
+	    
+	    String sign = appid + appkey + time;
+	    MessageDigest md = MessageDigest.getInstance("MD5");
+        byte[] bytes = md.digest(sign.getBytes("utf-8"));
+        
+        sign = tencentAI.toHex(bytes);
+	    
+		Map<String, String> params = new TreeMap<String, String>();
+        params.put("appId", appid);
+        params.put("timestamp", time);
+        params.put("sign", sign);
+        params.put("mobiles", phone);
+        params.put("content", msg);
+        
+        System.out.println("params:" + params.toString() );
+        
+        String res = HttpClient.get(url, params, null, "utf-8");
+
+        JSONObject jsonDate = JSONObject.parseObject(res);
+        String code = JSONObject.toJSONString(jsonDate.get("code"));
+
+        if (code.equals("\"SUCCESS\"")) {
+        	return 0;
+        }else {
+        	System.out.println("YIMEI code:" + code );
+        	return -1;
+        }
+        
+	}
+	
 	public static int sendSmsBatch(String phone, String msg, String userid) throws Exception
 	{
 		Dao druidDao = new Dao();

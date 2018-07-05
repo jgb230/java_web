@@ -50,6 +50,9 @@ public class HttpClient {
     	if (encode == null) {
     		encode = "UTF-8";
     	}
+    	
+    	System.out.println("url:" + url + " method:" + method + " body:" + body);
+    	
         URL Url = new URL(url);
         trustAllHttpsCertificates();
         HttpURLConnection httpConnection = (HttpURLConnection) Url.openConnection();

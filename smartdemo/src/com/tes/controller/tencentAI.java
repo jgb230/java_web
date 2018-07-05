@@ -106,7 +106,7 @@ public class tencentAI {
         return toHex(bytes);
 	}
 	
-	private static String toHex(byte[] bytes) {
+	public static String toHex(byte[] bytes) {
 
 	    final char[] HEX_DIGITS = "0123456789ABCDEF".toCharArray();
 	    StringBuilder ret = new StringBuilder(bytes.length * 2);

@@ -85,7 +85,7 @@ public class smartTes {
 	
 	static {
 		try {
-			//trimTest();
+			trimTest();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -191,14 +191,14 @@ public class smartTes {
 	private static String trimPunc(String sendMsg) {
 		System.out.println(String.format("trimPunc 之前:%s", sendMsg));
 		String ret = "";
-		ret = sendMsg.replaceAll("[\\p{P}`$^+= <>～~￥]" , "");;
+		//ret = sendMsg.replaceAll("\\d+\\.", "").replaceAll("[\\p{P}`$^+= <>～~￥]" , "");
+		ret = sendMsg.replaceFirst("^\\d+\\.", "").replaceAll(";\\d+\\.", ";").replaceAll("[\\p{P}`$^+= <>～~￥];" , "");
 		System.out.println(String.format("trimPunc 之后:%s", ret));
 		return ret;
 	}
 
 	private static void trimTest() throws Exception {
-		String sendMsg = "你好，我是jgb.。喂。'、\"“‘,`!@#$%^&*()_+=-{}[] {}【】？?<>《》～~！￥……（）";
-		trimPunc(sendMsg);
+		System.out.println(SmsClient.sendSms("18600227230", "GP999"));
 	}
 
 	private void getRobot(call callTemp, ZMQ.Socket receiver) throws Exception {
