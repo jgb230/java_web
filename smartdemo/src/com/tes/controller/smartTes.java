@@ -118,6 +118,7 @@ public class smartTes {
 		}
 		
 		sendMsg = buildSendMsg(jsonDate, callTemp, receiver);
+		sendMsg = trimPunc(sendMsg);
 		System.out.println(getCurrentTime() +" sendMsg---" + sendMsg);
 		
 		if (sendMsg.isEmpty() || callTemp.robotId.isEmpty()){
@@ -187,26 +188,17 @@ public class smartTes {
 		return map;
 	}
 
+	private static String trimPunc(String sendMsg) {
+		System.out.println(String.format("trimPunc 之前:%s", sendMsg));
+		String ret = "";
+		ret = sendMsg.replaceAll("[\\p{P}`$^+= <>～~￥]" , "");;
+		System.out.println(String.format("trimPunc 之后:%s", ret));
+		return ret;
+	}
+
 	private static void trimTest() throws Exception {
-		Dao druidDao = new Dao();
-		long billsec =(long) 1.0;
-		
-		Date endDate = new Date();
-		String sql = String.format("update tb_callrecord set cr_endtime=?,cr_billsec=?,  cr_status = 10,"
-				+ "cr_totalsec=((UNIX_TIMESTAMP(?) - UNIX_TIMESTAMP(cr_calltime)) *1000 ),"
-				+ "cr_asrdetail = ?, cr_file = ? "
-				+ "where cr_mobile=? and cr_status=3");
-		
-		List<Object> list = new ArrayList<Object>();
-		List<List<Object>> listall = new ArrayList<List<Object>>();
-		list.add(sdFormat.format(endDate));
-		list.add(billsec);
-		list.add(sdFormat.format(endDate));
-		list.add("1111111");
-		list.add("aaaaa");
-		list.add("18600227230");
-		listall.add(list);
-		druidDao.execute(sql,listall, "HJ");
+		String sendMsg = "你好，我是jgb.。喂。'、\"“‘,`!@#$%^&*()_+=-{}[] {}【】？?<>《》～~！￥……（）";
+		trimPunc(sendMsg);
 	}
 
 	private void getRobot(call callTemp, ZMQ.Socket receiver) throws Exception {
