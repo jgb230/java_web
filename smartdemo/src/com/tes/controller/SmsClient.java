@@ -34,6 +34,8 @@ public class SmsClient {
 			return sendSmsService(phone, content, userid);
 		}else if (type.equals("YIMEI")) {
 			return sendYimei(phone, content, userid);
+		}else if (type.equals("8DX8")) {
+			return send8dx8(phone, content, userid);
 		}
 		return sendSmsBatch(phone, content, userid);
 		
@@ -103,6 +105,30 @@ public class SmsClient {
         	System.out.println("YIMEI code:" + code );
         	return -1;
         }
+        
+	}
+	
+	private static int send8dx8(String phone, String msg, String userid) throws Exception {
+		Dao druidDao = new Dao();
+	    Map<String,String> map = druidDao.getSmsGW(userid, "HJ");
+	    String account = map.get("sgw_appid");
+	    String password = map.get("sgw_appkey");
+	    String url = map.get("sgw_url");
+	    
+		Map<String, String> params = new TreeMap<String, String>();
+		params.put("userid", "9791");
+        params.put("account", account);
+        params.put("password", password);
+        params.put("mobile", phone);
+        params.put("content", msg);
+        params.put("action", "send");
+        
+        System.out.println("params:" + params.toString() );
+        
+        String res = HttpClient.get(url, params, null, "utf-8");
+
+        System.out.println("res:" + res);
+        return 0;
         
 	}
 	

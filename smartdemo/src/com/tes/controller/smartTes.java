@@ -160,7 +160,7 @@ public class smartTes {
 					}else {
 						recvMsg = new String(receiver.recv());
 						System.out.println(getCurrentTime() +" recvMsg:" + recvMsg);
-						map = buildMap(recvMsg, callTemp);
+						map = buildMap(recvMsg, callTemp, receiver);
 					}
 				}
 			}else {
@@ -171,7 +171,7 @@ public class smartTes {
 					recvMsg = testRcv(callTemp);
 				}
 				System.out.println(getCurrentTime() +" recvMsg:" + recvMsg);
-				map = buildMap(recvMsg, callTemp);
+				map = buildMap(recvMsg, callTemp, receiver);
 			}
 			
 		}
@@ -342,7 +342,7 @@ public class smartTes {
 			return callTemp.callerid;
 		}
 	}
-	private Map<String, Object> buildMap(String recvMsg, call callTemp) throws Exception {
+	private Map<String, Object> buildMap(String recvMsg, call callTemp, ZMQ.Socket receiver) throws Exception {
 		Map<String, Object> map = new HashMap<String, Object>();
 		JSONObject jsonDate;
 		try{
@@ -369,6 +369,24 @@ public class smartTes {
 				int ret = SmsClient.sendSms(phone, msg);
 				if (ret != 0) {
 					System.out.println(getCurrentTime() + " send sms failed! err:" + ret);
+				}
+				String sendMsg = buildPlayback(callTemp);
+				boolean retr = receiver.send(sendMsg);
+				if (retr){
+	
+					ZMQ.PollItem []items = {new ZMQ.PollItem(receiver, ZMQ.Poller.POLLIN)};
+					ZMQ.poll(items, OUTIME);
+					if (!items[0].isReadable()){
+						System.out.println(getCurrentTime() +" timeout nothingFangyin, callerid:" + getPhone(callTemp) );
+						map = nothingFangyin(LONGOUT, callTemp);
+						if (!callTemp.action.equals("leave")) {
+							setTime(key, LONGOUT);
+						}
+					}else {
+						recvMsg = new String(receiver.recv());
+						System.out.println(getCurrentTime() +" recvMsg:" + recvMsg);
+						map = buildMap(recvMsg, callTemp, receiver);
+					}
 				}
 				map = nothingFangyin(outTime, callTemp);
 			}else {
@@ -454,7 +472,6 @@ public class smartTes {
 			return RESUME;
 		} else if ("asrmessage_notify".equals(callTemp.action)) {
 			Date now = new Date();
-			sendInterupt(jsonDate, callTemp, receiver);
 			String message = String.valueOf(jsonDate.get("message"));
 			insertCallinfo(callTemp, Speaker.USER, message, CntType.TXT);
 			boolean isPlay = (boolean) jsonDate.get("playstate");
@@ -464,6 +481,7 @@ public class smartTes {
 					return INVALID;
 				}
 			}
+			sendInterupt(jsonDate, callTemp, receiver);
 			if (message.isEmpty() ){
 				// ase识别为空
 				if (isPlay) {

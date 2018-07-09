@@ -124,9 +124,9 @@ public class Dao {
 //	        	System.out.println("tmp:"+tmp);
 	        	type = resultSet.getInt("cttype");
 	        	if (type == 0) {
-	        		ret += ("A:"+tmp.replaceAll("\\d+\\.", "").replaceAll(";", "")+"\\|");
+	        		ret += ("A:"+tmp.replaceAll("\\d+\\.", "").replaceAll(";", "")+"|");
 	        	}else if (type == 1) {
-	        		ret += ("Q:"+buildContent(tmp, conn)+"\\|");
+	        		ret += ("Q:"+buildContent(tmp, conn)+"|");
 	        	}
             }
 	    } catch (SQLException e) {
