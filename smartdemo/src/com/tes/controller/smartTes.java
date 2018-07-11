@@ -85,7 +85,7 @@ public class smartTes {
 	
 	static {
 		try {
-			trimTest();
+			//trimTest();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}

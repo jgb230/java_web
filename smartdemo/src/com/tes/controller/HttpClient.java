@@ -25,6 +25,8 @@ import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLSession;
 
+import com.alibaba.fastjson.JSON;
+
 public class HttpClient {
 
 	private static final int TIMEOUT = 45000;
@@ -45,10 +47,13 @@ public class HttpClient {
      * @throws Exception
      */
     private static HttpURLConnection createConnection(String url,
-            String method, Map<String, String> headerParameters, String body, String encode)
+            String method, Map<String, String> headerParameters, String body, String encode, String type)
             throws Exception {
     	if (encode == null) {
     		encode = "UTF-8";
+    	}
+    	if (type == null) {
+    		type = "application/x-www-form-urlencoded";
     	}
     	
     	System.out.println("url:" + url + " method:" + method + " body:" + body);
@@ -68,8 +73,7 @@ public class HttpClient {
             }
         }
         httpConnection.setRequestProperty("Content-Type",
-                "application/x-www-form-urlencoded;charset=" + encode);
-
+                type + ";charset=" + encode);
         // 设置请求方法
         httpConnection.setRequestMethod(method);
         httpConnection.setDoOutput(true);
@@ -109,12 +113,22 @@ public class HttpClient {
      * @throws Exception
      */
     public static String post(String address,
-            Map<String, String> headerParameters, String body, String encode) throws Exception {
-
-        return proxyHttpRequest(address, "POST", null,
-                getRequestBody(headerParameters, encode), encode);
+            Map<String, String> bodyParameters, Map<String, String> headerParameters, String encode,  String type) throws Exception {
+    	String body = "";
+    	if (type.equals("application/json")) {
+    		body = getJsonBody(bodyParameters, encode);
+    	}else {
+    		body = getRequestBody(bodyParameters, encode);
+    	}
+    	
+    	
+        return proxyHttpRequest(address, "POST", headerParameters, body, encode, type);
     }
-    public static String getRequestBody(Map<String, String> params, String encode) {
+    private static String getJsonBody(Map<String, String> bodyParameters, String encode) {
+    	return JSON.toJSONString(bodyParameters);
+	}
+
+	public static String getRequestBody(Map<String, String> params, String encode) {
         return getRequestBody(params, true, encode);
     }
     public static String getRequestBody(Map<String, String> params,
@@ -156,10 +170,10 @@ public class HttpClient {
      * @throws Exception
      */
     public static String get(String address,
-            Map<String, String> headerParameters, String body, String encode) throws Exception {
+            Map<String, String> headerParameters, String body, String encode, String type) throws Exception {
 
         return proxyHttpRequest(address + "?"
-                + getRequestBody(headerParameters, encode), "GET", null, null, encode);
+                + getRequestBody(headerParameters, encode), "GET", null, null, encode, type);
     }
 
     /**
@@ -227,7 +241,7 @@ public class HttpClient {
     }
     
     public static String proxyHttpRequest(String address, String method,
-            Map<String, String> headerParameters, String body, String encode ) throws Exception {
+            Map<String, String> headerParameters, String body, String encode, String type) throws Exception {
         String result = null;
         HttpURLConnection httpConnection = null;
         if (encode == null) {
@@ -235,7 +249,7 @@ public class HttpClient {
         }
         try {
             httpConnection = createConnection(address, method,
-                    headerParameters, body, encode);
+                    headerParameters, body, encode, type);
 
             System.out.println("#############" + httpConnection.getContentType());
             if (httpConnection.getContentType() != null

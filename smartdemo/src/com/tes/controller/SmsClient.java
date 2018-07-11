@@ -7,6 +7,7 @@ import java.util.Date;
 import java.util.Map;
 import java.util.TreeMap;
 
+import org.apache.commons.codec.binary.Base64;
 import org.json.JSONException;
 
 import com.alibaba.fastjson.JSONObject;
@@ -36,6 +37,10 @@ public class SmsClient {
 			return sendYimei(phone, content, userid);
 		}else if (type.equals("8DX8")) {
 			return send8dx8(phone, content, userid);
+		}else if (type.equals("SYNWAY")) {
+			return sendSynway(phone, content, userid);
+		}else if (type.equals("DBL")) {
+			return sendDBL(phone, content, userid);
 		}
 		return sendSmsBatch(phone, content, userid);
 		
@@ -54,7 +59,7 @@ public class SmsClient {
         params.put("Mobiles", phone);
         params.put("Content", msg);
         
-        String res = HttpClient.get(url, params, null, "GBK");
+        String res = HttpClient.get(url, params, null, "GBK", null);
         int position = res.indexOf("Status=");
         int position2 = res.indexOf("&Description=");
         String ret = res.substring(position + 7, position2);
@@ -69,6 +74,63 @@ public class SmsClient {
         }
 	}
 
+	private static int sendSynway(String phone, String msg, String userid) throws Exception {
+		Dao druidDao = new Dao();
+	    Map<String,String> map = druidDao.getSmsGW(userid, "HJ");
+	    String account = map.get("sgw_appid");
+	    String appkey = map.get("sgw_appkey");
+	    String url = map.get("sgw_url");
+	    
+		Map<String, String> params = new TreeMap<String, String>();
+        params.put("encoding", "8");
+        params.put("port", "-1");
+        params.put("num", phone);
+        params.put("smsinfo", msg);
+        params.put("event", "txsms");
+
+        String authString = account + ":" + appkey;
+        byte[] authEncBytes = Base64.encodeBase64(authString.getBytes());
+        String authStringEnc = new String(authEncBytes);
+
+        Map<String, String> headparams = new TreeMap<String, String>();
+        headparams.put("Authorization", "Basic " + authStringEnc);
+        System.out.println("headparams:" + headparams.toString());
+        String res = HttpClient.post(url, params, headparams , "utf-8", "application/json");
+        
+        JSONObject jsonDate = JSONObject.parseObject(res);
+        String code = JSONObject.toJSONString(jsonDate.get("result"));
+        
+        if (code.equals("\"ok\"")) {
+        	return 0;
+        }else {
+        	System.out.println("Synway code:" + code );
+        	return -1;
+        }
+
+	}
+	
+	private static int sendDBL(String phone, String msg, String userid) throws Exception {
+		Dao druidDao = new Dao();
+	    Map<String,String> map = druidDao.getSmsGW(userid, "HJ");
+	    String account = map.get("sgw_appid");
+	    String appkey = map.get("sgw_appkey");
+	    String url = map.get("sgw_url");
+	    
+		Map<String, String> params = new TreeMap<String, String>();
+        params.put("u", account);
+        params.put("p", appkey);
+        params.put("n", phone);
+        params.put("m", msg);
+        params.put("l", "1");
+
+        
+        String res = HttpClient.post(url, params, null , "utf-8", null);
+        System.out.println("dbl ret:" + res );
+        
+        return 0;
+
+	}
+	
 	private static int sendYimei(String phone, String msg, String userid) throws Exception {
 		Dao druidDao = new Dao();
 	    Map<String,String> map = druidDao.getSmsGW(userid, "HJ");
@@ -94,7 +156,7 @@ public class SmsClient {
         
         System.out.println("params:" + params.toString() );
         
-        String res = HttpClient.get(url, params, null, "utf-8");
+        String res = HttpClient.get(url, params, null, "utf-8", null);
 
         JSONObject jsonDate = JSONObject.parseObject(res);
         String code = JSONObject.toJSONString(jsonDate.get("code"));
@@ -125,7 +187,7 @@ public class SmsClient {
         
         System.out.println("params:" + params.toString() );
         
-        String res = HttpClient.get(url, params, null, "utf-8");
+        String res = HttpClient.get(url, params, null, "utf-8",null);
 
         System.out.println("res:" + res);
         return 0;
@@ -147,7 +209,7 @@ public class SmsClient {
         params.put("msg", msg);
         params.put("needstatus", "true");
         
-        String res = HttpClient.post(url, params, null, "UTF-8");
+        String res = HttpClient.post(url, params, null, "UTF-8", null);
         int position = res.indexOf(",");
         String ret = res.substring(position + 1, position + 2);
         System.out.println("res:" + res + " ret:" + ret);

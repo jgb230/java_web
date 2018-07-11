@@ -51,7 +51,7 @@ public class tencentAI {
 
         params.replace("sign", getReqSign(params, appKey));
         System.out.println(params);
-        String res = HttpClient.post(url, params, null, "UTF-8");
+        String res = HttpClient.post(url, params, null, "UTF-8", null);
         System.out.println("fileName" + fileName);
         writeFile(res, fileName);
 		return fileName;
