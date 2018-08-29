@@ -52,7 +52,7 @@ public class tencentAI {
         params.replace("sign", getReqSign(params, appKey));
         System.out.println(params);
         String res = HttpClient.post(url, params, null, "UTF-8", null);
-        System.out.println("fileName" + fileName);
+        System.out.println("fileName:" + fileName);
         writeFile(res, fileName);
 		return fileName;
 	}
@@ -63,7 +63,7 @@ public class tencentAI {
 		JSONObject jsonres = JSONObject.parseObject(res);
         JSONObject jsondata = jsonres.getJSONObject("data");
         String speech = (String) jsondata.get("speech");
-
+        System.out.println("ret:" + jsonres.get("ret") + " msg:" + jsonres.get("msg") );
         Base64.Decoder decoder = Base64.getDecoder();
         byte[] encodedText = decoder.decode(speech);
         File file = new File(fileName);

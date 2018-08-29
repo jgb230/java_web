@@ -85,7 +85,7 @@ public class smartTes {
 	
 	static {
 		try {
-			//trimTest();
+			trimTest();
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -118,7 +118,7 @@ public class smartTes {
 		}
 		
 		sendMsg = buildSendMsg(jsonDate, callTemp, receiver);
-		sendMsg = trimPunc(sendMsg);
+		//sendMsg = trimPunc(sendMsg);
 		System.out.println(getCurrentTime() +" sendMsg---" + sendMsg);
 		
 		if (sendMsg.isEmpty() || callTemp.robotId.isEmpty()){
@@ -198,7 +198,17 @@ public class smartTes {
 	}
 
 	private static void trimTest() throws Exception {
-		System.out.println(SmsClient.sendSms("18600227230", "GP999"));
+//		tencentAI tAI =new tencentAI();
+//		String tail = speed + "." + aht + "." + apc;
+//		String fileTemp = tencentpath + getCurrentDate() + "/" + tail;
+//		String fileName = "";
+//		String ch = "您这个情况建议您赶紧去医院看一下吧";
+//		try {
+//			fileName = tAI.tts(ch, fileTemp, speed, aht, apc);
+//		}catch(Exception e){
+//			e.printStackTrace();
+//		}
+//		System.out.println("fileName:" + fileName);
 	}
 
 	private void getRobot(call callTemp, ZMQ.Socket receiver) throws Exception {
@@ -366,9 +376,13 @@ public class smartTes {
 				String msg = buildSMS(message.substring(position + 5));
 				String phone = getPhone(callTemp);
 				System.out.println(getCurrentTime() + " send sms phone:" + phone + " msg:" + msg);
-				int ret = SmsClient.sendSms(phone, msg);
-				if (ret != 0) {
-					System.out.println(getCurrentTime() + " send sms failed! err:" + ret);
+				try {
+					int ret = SmsClient.sendSms(phone, msg);
+					if (ret != 0) {
+						System.out.println(getCurrentTime() + " send sms failed! err:" + ret);
+					}
+				}catch(Exception e){
+					e.printStackTrace();
 				}
 				String sendMsg = buildPlayback(callTemp);
 				boolean retr = receiver.send(sendMsg);
@@ -844,7 +858,7 @@ public class smartTes {
 		Map<String, Object> map = new HashMap<String, Object>();
 		map.put("cmd", 801);
 		map.put("channel", "dialog");
-		map.put("content", message);
+		map.put("content", trimPunc(message));
 		map.put("robotid", callTemp.robotId );
 		map.put("scene", "");
 		//map.put("uid", calleeid);
@@ -933,7 +947,11 @@ public class smartTes {
 				}else {
 					tencentAI tAI =new tencentAI();
 					String fileTemp = tencentpath + getCurrentDate() + "/" + callTemp.callid;
-					fileName = tAI.tts(arr[i], fileTemp, speed, aht, apc);
+					try {
+						fileName = tAI.tts(arr[i], fileTemp, speed, aht, apc);
+					}catch(Exception e){
+						e.printStackTrace();
+					}
 					ret.add(fileName);
 					String [] filev = fileName.split("/");
 					int len = filev.length;

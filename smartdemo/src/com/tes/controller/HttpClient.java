@@ -115,7 +115,7 @@ public class HttpClient {
     public static String post(String address,
             Map<String, String> bodyParameters, Map<String, String> headerParameters, String encode,  String type) throws Exception {
     	String body = "";
-    	if (type.equals("application/json")) {
+    	if (type !=null && type.equals("application/json")) {
     		body = getJsonBody(bodyParameters, encode);
     	}else {
     		body = getRequestBody(bodyParameters, encode);
@@ -141,7 +141,7 @@ public class HttpClient {
         while (iteratorHeader.hasNext()) {
             String key = iteratorHeader.next();
             String value = params.get(key);
-            if (value.isEmpty()) {
+            if (value == null || value.isEmpty()) {
             	continue;
             }
             if (urlEncode) {

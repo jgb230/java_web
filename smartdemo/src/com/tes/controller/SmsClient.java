@@ -5,6 +5,7 @@ import java.security.MessageDigest;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Map;
+import java.util.Random;
 import java.util.TreeMap;
 
 import org.apache.commons.codec.binary.Base64;
@@ -116,16 +117,28 @@ public class SmsClient {
 	    String appkey = map.get("sgw_appkey");
 	    String url = map.get("sgw_url");
 	    
+	    int times = 0;
+	    
+	    Random rand = new Random();
+		rand.setSeed((new Date()).getTime());
+		int line = rand.nextInt(15) + 1;
+	    
 		Map<String, String> params = new TreeMap<String, String>();
         params.put("u", account);
         params.put("p", appkey);
         params.put("n", phone);
         params.put("m", msg);
-        params.put("l", "1");
-
+        params.put("l", Integer.toString(line));
         
-        String res = HttpClient.post(url, params, null , "utf-8", null);
-        System.out.println("dbl ret:" + res );
+        String res = HttpClient.get(url, params, null , "utf-8", null);
+        while (res.contains("ERROR")) {
+        	params.replace("l", Integer.toString(++line));
+        	res = HttpClient.get(url, params, null , "utf-8", null);
+        	if (line >= 10 || times++ > 2) {
+        		break;
+        	}
+        }
+        System.out.println("dbl ret:" + res + " line:" + line);
         
         return 0;
 
