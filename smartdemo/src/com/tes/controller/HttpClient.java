@@ -56,7 +56,7 @@ public class HttpClient {
     		type = "application/x-www-form-urlencoded";
     	}
     	
-    	System.out.println("url:" + url + " method:" + method + " \nbody:" + body);
+    	System.out.println(smartTes.getCurrentTime() + "url:" + url + " \nmethod:" + method + " \nbody:" + body);
     	
         URL Url = new URL(url);
         trustAllHttpsCertificates();
@@ -79,7 +79,7 @@ public class HttpClient {
         httpConnection.setDoOutput(true);
         httpConnection.setDoInput(true);
         // 写query数据流
-        System.out.println("encode:" + encode);
+        System.out.println(smartTes.getCurrentTime() + "encode:" + encode);
         if (!(body == null || body.trim().equals(""))) {
             OutputStream writer = httpConnection.getOutputStream();
             try {
@@ -251,7 +251,7 @@ public class HttpClient {
             httpConnection = createConnection(address, method,
                     headerParameters, body, encode, type);
 
-            System.out.println("#############" + httpConnection.getContentType());
+            System.out.println(smartTes.getCurrentTime() + "#############" + httpConnection.getContentType());
             if (httpConnection.getContentType() != null
                     && httpConnection.getContentType().indexOf("charset=") >= 0) {
             	encode = httpConnection.getContentType()

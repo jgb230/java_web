@@ -94,7 +94,7 @@ public class Alisms {
 
         //发短信
         SendSmsResponse response = sendSms(phone, msg);
-        System.out.println("ali短信接口返回的数据----------------");
+        System.out.println(smartTes.getCurrentTime() + "ali短信接口返回的数据----------------");
         System.out.println("Code=" + response.getCode());
         System.out.println("Message=" + response.getMessage());
         System.out.println("RequestId=" + response.getRequestId());
@@ -122,7 +122,7 @@ public class Alisms {
                 System.out.println("Template=" + smsSendDetailDTO.getTemplateCode());
             }
             System.out.println("TotalCount=" + querySendDetailsResponse.getTotalCount());
-            System.out.println("RequestId=" + querySendDetailsResponse.getRequestId());
+            System.out.println(smartTes.getCurrentTime() + "RequestId=" + querySendDetailsResponse.getRequestId());
         }
 
     }

@@ -214,8 +214,8 @@ public class smartTes {
 		JSONObject jsonDate = JSONObject.parseObject(json);
 		String phone = String.valueOf(jsonDate.get("phone"));
 		String msg = String.valueOf(jsonDate.get("msg"));
-		SmsClient.sendSms(phone, msg);
-		
+		int ret = SmsClient.sendSms(phone, msg);
+		map.put("ret", ret);
 		return map;
 	}
 	

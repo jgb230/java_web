@@ -13,7 +13,7 @@ import com.alibaba.druid.util.jdbc.PreparedStatementBase;
 
 public class Dao {
 	 public void insert(String sql,String db){
-		 System.out.println(sql);
+		 System.out.println(smartTes.getCurrentTime() + sql);
 		ConnectionPool dbp = ConnectionPool.getInstance();    //获取数据连接池单例
 		DruidPooledConnection conn = null;
 		Statement statement = null;
@@ -38,7 +38,7 @@ public class Dao {
 	}
 	
 	public void execute(String sql,List<List<Object>> list,String db){
-		System.out.println(sql);
+		System.out.println(smartTes.getCurrentTime() + sql);
 		ConnectionPool dbp = ConnectionPool.getInstance();    //获取数据连接池单例
 		DruidPooledConnection conn = null;
 		PreparedStatement  statement = null;
@@ -47,7 +47,7 @@ public class Dao {
 		    statement = conn.prepareStatement(sql);
 		    for (int i = 0; i < list.size(); i++) {
 		    	for (int j = 0; j < list.get(i).size(); j++) {
-		    		System.out.println(list.get(i).get(j).getClass().toString());
+		    		System.out.println(smartTes.getCurrentTime() + list.get(i).get(j).getClass().toString());
 		    		if (list.get(i).get(j).getClass().toString().equals("class java.lang.String")) {
 		    			statement.setString(j+1, (String) list.get(i).get(j));
 		    		}else if (list.get(i).get(j).getClass().toString().equals("class java.lang.Integer")) {
@@ -79,7 +79,7 @@ public class Dao {
 	}
 	 
 	public String select(String sql, String db){
-		System.out.println(sql);
+		System.out.println(smartTes.getCurrentTime() + sql);
 		ConnectionPool dbp = ConnectionPool.getInstance();    //获取数据连接池单例
 		DruidPooledConnection conn = null;
 		ResultSet resultSet = null;
@@ -140,7 +140,7 @@ public class Dao {
 	            e.printStackTrace();
 	        }
 	    }
-		System.out.println("ret:"+ret);
+		System.out.println(smartTes.getCurrentTime() + "ret:"+ret);
 		return ret;
 	}
 	
@@ -213,7 +213,7 @@ public class Dao {
 	            e.printStackTrace();
 	        }
 	    }
-		System.out.println("smsg_content:"+ret);
+		System.out.println(smartTes.getCurrentTime() + "smsg_content:"+ret);
 		return ret;
 	}
 	
@@ -243,7 +243,7 @@ public class Dao {
 	            e.printStackTrace();
 	        }
 	    }
-		System.out.println("smsg_userid:"+ret);
+		System.out.println(smartTes.getCurrentTime() + "smsg_userid:"+ret);
 		return ret;
 	}
 	
@@ -272,7 +272,7 @@ public class Dao {
 	            e.printStackTrace();
 	        }
 	    }
-		System.out.println("sgw_type:"+ret);
+		System.out.println(smartTes.getCurrentTime() + "sgw_type:"+ret);
 		return ret;
 	}
 	
@@ -304,7 +304,7 @@ public class Dao {
 	            e.printStackTrace();
 	        }
 	    }
-		System.out.println("retMap:"+retMap);
+		System.out.println(smartTes.getCurrentTime() + "retMap:"+retMap);
 		return retMap;
 	}
 	
