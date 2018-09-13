@@ -198,19 +198,27 @@ public class smartTes {
 	}
 
 	private static void trimTest() throws Exception {
-//		tencentAI tAI =new tencentAI();
-//		String tail = speed + "." + aht + "." + apc;
-//		String fileTemp = tencentpath + getCurrentDate() + "/" + tail;
-//		String fileName = "";
-//		String ch = "您这个情况建议您赶紧去医院看一下吧";
-//		try {
-//			fileName = tAI.tts(ch, fileTemp, speed, aht, apc);
-//		}catch(Exception e){
-//			e.printStackTrace();
-//		}
-//		System.out.println("fileName:" + fileName);
+		//SmsClient.sendSms("13774251515", "GP999");
 	}
 
+	@RequestMapping("/sendMsg")
+	public @ResponseBody Map<String, Object> sendMsg(HttpServletRequest request, HttpServletResponse response) 
+			throws Exception {
+		Map<String, Object> map = new HashMap<String, Object>();
+		
+		String json = new String(getReqMsg(request));
+		log.info(json);
+		
+		System.out.println("\n\n\n----------------------------------------------------------\n");
+		System.out.println(getCurrentTime() +" json---" + json);
+		JSONObject jsonDate = JSONObject.parseObject(json);
+		String phone = String.valueOf(jsonDate.get("phone"));
+		String msg = String.valueOf(jsonDate.get("msg"));
+		SmsClient.sendSms(phone, msg);
+		
+		return map;
+	}
+	
 	private void getRobot(call callTemp, ZMQ.Socket receiver) throws Exception {
 		String key = callTemp.calleeid + callTemp.callerid;
 		String phone = "";

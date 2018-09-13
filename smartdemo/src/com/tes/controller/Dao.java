@@ -278,7 +278,7 @@ public class Dao {
 	
 	public Map<String,String> getSmsGW(String userid,String db) {
 		Map<String, String> retMap = new HashMap<String, String>();
-		String sql = String.format("select sgw_appid, sgw_appkey, sgw_url from tb_smsgateway where sgw_userid = '%s'", userid);
+		String sql = String.format("select sgw_appid, sgw_appkey, sgw_url, sgw_sign from tb_smsgateway where sgw_userid = '%s'", userid);
 		ConnectionPool dbp = ConnectionPool.getInstance();    //获取数据连接池单例
 		DruidPooledConnection conn = null;
 		ResultSet resultSet = null;
@@ -291,6 +291,7 @@ public class Dao {
 	        	retMap.put("sgw_appid", resultSet.getString("sgw_appid"));
 	        	retMap.put("sgw_appkey", resultSet.getString("sgw_appkey"));
 	        	retMap.put("sgw_url", resultSet.getString("sgw_url"));
+	        	retMap.put("sgw_sign", resultSet.getString("sgw_sign"));
             }
 	    } catch (SQLException e) {
 	        e.printStackTrace();

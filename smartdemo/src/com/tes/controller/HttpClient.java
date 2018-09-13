@@ -56,7 +56,7 @@ public class HttpClient {
     		type = "application/x-www-form-urlencoded";
     	}
     	
-    	System.out.println("url:" + url + " method:" + method + " body:" + body);
+    	System.out.println("url:" + url + " method:" + method + " \nbody:" + body);
     	
         URL Url = new URL(url);
         trustAllHttpsCertificates();

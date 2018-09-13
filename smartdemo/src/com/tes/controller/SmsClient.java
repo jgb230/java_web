@@ -42,6 +42,8 @@ public class SmsClient {
 			return sendSynway(phone, content, userid);
 		}else if (type.equals("DBL")) {
 			return sendDBL(phone, content, userid);
+		}else if (type.equals("YH")) {
+			return sendSmsYH(phone, content, userid);
 		}
 		return sendSmsBatch(phone, content, userid);
 		
@@ -121,7 +123,7 @@ public class SmsClient {
 	    
 	    Random rand = new Random();
 		rand.setSeed((new Date()).getTime());
-		int line = rand.nextInt(15) + 1;
+		int line = 1;
 	    
 		Map<String, String> params = new TreeMap<String, String>();
         params.put("u", account);
@@ -232,6 +234,41 @@ public class SmsClient {
         	String err = res.substring(position + 1, position + 4);
         	return Integer.parseInt(err);
         }
+	}
+	
+	public static int sendSmsYH(String phone, String msg, String userid) throws Exception
+	{
+		Dao druidDao = new Dao();
+	    Map<String,String> map = druidDao.getSmsGW(userid, "HJ");
+	    String account = map.get("sgw_appid");
+	    String appkey = map.get("sgw_appkey");
+	    String url = map.get("sgw_url");
+	    String sig = map.get("sgw_sign");
+	    
+	    MessageDigest md = MessageDigest.getInstance("MD5");
+        byte[] bytes = md.digest(appkey.getBytes("utf-8"));
+        
+        String key = tencentAI.toHex(bytes);
+	    
+		Map<String, String> params = new TreeMap<String, String>();
+        params.put("account", account);
+        params.put("password", key.toLowerCase());
+        params.put("mobile", phone);
+        params.put("content", msg);
+        params.put("signature", sig);
+        params.put("atTime", "0");
+        params.put("smsType", "2");
+        params.put("extCode", "");
+        params.put("orderId", "");
+        
+        String res = HttpClient.post(url, params, null, "UTF-8", "application/json");
+        
+        JSONObject jsonDate = JSONObject.parseObject(res);
+        String code = JSONObject.toJSONString(jsonDate.get("message"));
+
+        System.out.println("YH code:" + code + " res:" + res);
+        return 0;
+ 
 	}
 	
 	public static int sendsmsTx(String phone, String msg, String userid) throws JSONException, HTTPException, IOException
