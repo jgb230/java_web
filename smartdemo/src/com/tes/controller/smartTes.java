@@ -219,6 +219,36 @@ public class smartTes {
 		return map;
 	}
 	
+	@RequestMapping("/TXtts")
+	public @ResponseBody Map<String, Object> TXtts(HttpServletRequest request, HttpServletResponse response) 
+			throws Exception {
+		Map<String, Object> map = new HashMap<String, Object>();
+		
+		String json = new String(getReqMsg(request));
+		log.info(json);
+		
+		System.out.println("\n\n\n----------------------------------------------------------\n");
+		System.out.println(getCurrentTime() +" json---" + json);
+		JSONObject jsonDate = JSONObject.parseObject(json);
+		String ch = String.valueOf(jsonDate.get("ch"));
+		String path = String.valueOf(jsonDate.get("path"));
+		String sp = String.valueOf(jsonDate.get("speed"));
+		if (sp == null || sp.isEmpty()) {
+			sp = speed;
+		}
+		String st = String.valueOf(jsonDate.get("aht"));
+		if (st == null || st.isEmpty()) {
+			st = aht;
+		}
+		String ap = String.valueOf(jsonDate.get("apc"));
+		if (ap == null || ap.isEmpty()) {
+			ap = apc;
+		}
+		tencentAI tAI =new tencentAI();
+		String fileName = tAI.tts(ch, path, sp, st, ap);
+		map.put("fileName", fileName);
+		return map;
+	}
 	private void getRobot(call callTemp, ZMQ.Socket receiver) throws Exception {
 		String key = callTemp.calleeid + callTemp.callerid;
 		String phone = "";
@@ -541,7 +571,13 @@ public class smartTes {
 			clear(callTemp);
 			return buildLeaveMsg(callTemp);
 		} else if ("wait_result".equals(callTemp.action)){ // wait超时
-			return buildTimeoutMsg(callTemp);
+			boolean stat = (boolean) jsonDate.get("asrstate");
+			if (stat) {
+				System.out.println(getCurrentTime() +" asrstate is " + stat + " " + getPhone(callTemp));
+				return "";
+			}else {
+				return buildTimeoutMsg(callTemp);
+			}
 		} else if ("start_asr_result".equals(callTemp.action)) {
 			return ASRSTART;
 		}
@@ -1192,7 +1228,7 @@ public class smartTes {
 	
 	public static String getCurrentTime(){
 		String myTime = sdFormat.format(new Date());
-		return myTime;
+		return myTime + " ";
 	}
 	
 	public static String getCurrentDate(){

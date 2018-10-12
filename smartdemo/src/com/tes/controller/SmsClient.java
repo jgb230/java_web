@@ -66,13 +66,13 @@ public class SmsClient {
         int position = res.indexOf("Status=");
         int position2 = res.indexOf("&Description=");
         String ret = res.substring(position + 7, position2);
-        System.out.println("res:" + res + " ret:" + ret);
+        System.out.println(smartTes.getCurrentTime() +"res:" + res + " ret:" + ret);
         if (ret.toUpperCase().equals("SUCC")) {
         	return 0;
         }else {
         	int position3 = res.indexOf("&GatewayId=");
         	String err = res.substring(position2 + 13, position3);
-        	System.out.println( err);
+        	System.out.println(smartTes.getCurrentTime() + err);
         	return -1;
         }
 	}
@@ -97,7 +97,7 @@ public class SmsClient {
 
         Map<String, String> headparams = new TreeMap<String, String>();
         headparams.put("Authorization", "Basic " + authStringEnc);
-        System.out.println("headparams:" + headparams.toString());
+        System.out.println(smartTes.getCurrentTime() +"headparams:" + headparams.toString());
         String res = HttpClient.post(url, params, headparams , "utf-8", "application/json");
         
         JSONObject jsonDate = JSONObject.parseObject(res);
@@ -106,7 +106,7 @@ public class SmsClient {
         if (code.equals("\"ok\"")) {
         	return 0;
         }else {
-        	System.out.println("Synway code:" + code );
+        	System.out.println(smartTes.getCurrentTime() +"Synway code:" + code );
         	return -1;
         }
 
@@ -133,14 +133,16 @@ public class SmsClient {
         params.put("l", Integer.toString(line));
         
         String res = HttpClient.get(url, params, null , "utf-8", null);
+        System.out.println(smartTes.getCurrentTime() +" dbl ret:" + res + " line:" + line + " times:" + times);
         while (res.contains("ERROR")) {
-        	params.replace("l", Integer.toString(++line));
-        	res = HttpClient.get(url, params, null , "utf-8", null);
-        	if (line >= 10 || times++ > 2) {
+        	if (++times > 2) {
         		break;
         	}
+        	params.replace("l", Integer.toString(++line));
+        	res = HttpClient.get(url, params, null , "utf-8", null);
+        	System.out.println(smartTes.getCurrentTime() +" dbl ret:" + res + " line:" + line + " times:" + times);
+        	
         }
-        System.out.println("dbl ret:" + res + " line:" + line);
         
         return 0;
 
@@ -169,7 +171,7 @@ public class SmsClient {
         params.put("mobiles", phone);
         params.put("content", msg);
         
-        System.out.println("params:" + params.toString() );
+        System.out.println(smartTes.getCurrentTime() +"params:" + params.toString() );
         
         String res = HttpClient.get(url, params, null, "utf-8", null);
 
@@ -179,7 +181,7 @@ public class SmsClient {
         if (code.equals("\"SUCCESS\"")) {
         	return 0;
         }else {
-        	System.out.println("YIMEI code:" + code );
+        	System.out.println(smartTes.getCurrentTime() +"YIMEI code:" + code );
         	return -1;
         }
         
@@ -200,11 +202,11 @@ public class SmsClient {
         params.put("content", msg);
         params.put("action", "send");
         
-        System.out.println("params:" + params.toString() );
+        System.out.println(smartTes.getCurrentTime() +"params:" + params.toString() );
         
         String res = HttpClient.get(url, params, null, "utf-8",null);
 
-        System.out.println("res:" + res);
+        System.out.println(smartTes.getCurrentTime() +"res:" + res);
         return 0;
         
 	}
@@ -227,7 +229,7 @@ public class SmsClient {
         String res = HttpClient.post(url, params, null, "UTF-8", null);
         int position = res.indexOf(",");
         String ret = res.substring(position + 1, position + 2);
-        System.out.println("res:" + res + " ret:" + ret);
+        System.out.println(smartTes.getCurrentTime() +"res:" + res + " ret:" + ret);
         if (ret.equals("0")) {
         	return 0;
         }else {
@@ -266,7 +268,7 @@ public class SmsClient {
         JSONObject jsonDate = JSONObject.parseObject(res);
         String code = JSONObject.toJSONString(jsonDate.get("message"));
 
-        System.out.println("YH code:" + code + " res:" + res);
+        System.out.println(smartTes.getCurrentTime() +"YH code:" + code + " res:" + res);
         return 0;
  
 	}
@@ -277,7 +279,7 @@ public class SmsClient {
 	    SmsSingleSender ssender = new SmsSingleSender(1400105326, "d61a7a002ca05d0d6a37f4528baae58a");
 	    SmsSingleSenderResult result = ssender.send(0, "86", phone,
 	        msg, "", "");
-	    System.out.print(new String(result.toString().getBytes("utf-8")));
+	    System.out.print(smartTes.getCurrentTime() +new String(result.toString().getBytes("utf-8")));
 	    return 1;
 	}
 	
